@@ -625,7 +625,8 @@ $('fileInput').onchange = async e => {
   const errs = results.filter(r => r && r.err);
   if (errs.some(r => r.err === 'size')) toast('動画は32MBまで');
   else if (errs.some(r => r.err === 'long')) toast('動画は20秒まで');
-  else if (errs.length) toast(`${errs.length}件は読み込めなかった（形式非対応かも）`);
+  else if (errs.some(r => ['decode', 'timeout', 'canvas'].includes(r.err))) toast('読み込めない画像がある（HEIC等かも）。JPEGで保存し直して');
+  else if (errs.length) toast(`${errs.length}件は読み込めなかった`);
   if (!pendingImages.length) return;
   $('previewRow').innerHTML = '';
   pendingImages.forEach(item => {
@@ -701,7 +702,13 @@ function exifSummary(file) {
 // HEIC等でImageが失敗する端末対策: createImageBitmap優先 + エラー検知 + タイムアウト
 async function loadBitmap(file) {
   if (window.createImageBitmap) {
-    try { return await createImageBitmap(file); } catch (e) { /* fallbackへ */ }
+    // ハング対策でタイムアウト付き。失敗したら<img>フォールバックへ
+    try {
+      return await Promise.race([
+        createImageBitmap(file),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000)),
+      ]);
+    } catch (e) { /* fallbackへ */ }
   }
   return new Promise((res, rej) => {
     const img = new Image();
