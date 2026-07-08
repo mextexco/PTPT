@@ -699,8 +699,8 @@ function exifSummary(file) {
   });
 }
 
-// HEIC等でImageが失敗する端末対策: createImageBitmap優先 + エラー検知 + タイムアウト
-async function loadBitmap(file) {
+// createImageBitmap優先 + <img>フォールバック + タイムアウト
+async function decodeToBitmap(file) {
   if (window.createImageBitmap) {
     // ハング対策でタイムアウト付き。失敗したら<img>フォールバックへ
     try {
@@ -719,6 +719,36 @@ async function loadBitmap(file) {
     img.onerror = () => done(new Error('decode'));
     img.src = url;
   });
+}
+
+// heic2anyを必要な時だけ遅延ロード（1.3MBあるので純JPEG/WebPでは読まない）
+let _heic2any = null;
+function loadHeic2any() {
+  if (_heic2any) return _heic2any;
+  _heic2any = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = '/heic2any.min.js';
+    s.onload = () => window.heic2any ? res(window.heic2any) : rej(new Error('heiclib'));
+    s.onerror = () => { _heic2any = null; rej(new Error('heiclib')); };
+    document.head.appendChild(s);
+  });
+  return _heic2any;
+}
+
+// 通常デコード。失敗したら（iPhone由来HEIC等）heic2anyでJPEG化して再挑戦
+async function loadBitmap(file) {
+  try {
+    return await decodeToBitmap(file);
+  } catch (e) {
+    try {
+      const h2a = await loadHeic2any();
+      const out = await h2a({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+      const jpeg = Array.isArray(out) ? out[0] : out;
+      return await decodeToBitmap(jpeg);
+    } catch (e2) {
+      throw e; // 元のデコードエラーを返す
+    }
+  }
 }
 async function resizeImage(file, maxSide, quality) {
   const bmp = await loadBitmap(file);
