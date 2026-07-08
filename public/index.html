@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#fff4e8">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="PTPT">
+<title>PTPT</title>
+<script src="qrcode.min.js"></script>
+<script src="jsqr.min.js"></script>
+<script src="exif.min.js"></script>
+<style>
+:root {
+  --ground: #fff4e8;      /* 暖かいクリーム地 */
+  --surface: #ffffff;
+  --ink: #2b2140;         /* プラムブラック（文字・輪郭） */
+  --ink-soft: #7b6f8e;
+  --pink: #ff5da2;        /* 主役アクセント */
+  --blue: #3fb9ff;
+  --yellow: #ffcf3f;
+  --green: #3ddc84;
+  --stage: #f3e6d3;       /* 写真表示エリア（暖かいクリーム、地より少し濃い） */
+  --danger: #ff5a5a;
+  --radius: 16px;
+  --shadow: 4px 4px 0 var(--ink);
+  --shadow-sm: 3px 3px 0 var(--ink);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overscroll-behavior: none; }
+body {
+  background-color: var(--ground);
+  background-image: radial-gradient(rgba(43,33,64,.06) 1.6px, transparent 1.6px);
+  background-size: 18px 18px;
+  color: var(--ink);
+  font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', -apple-system, 'Segoe UI', system-ui, sans-serif;
+  display: flex; flex-direction: column;
+}
+h1, h2, h3 { font-weight: 800; letter-spacing: .01em; font-family: 'Hiragino Maru Gothic ProN', 'Arial Rounded MT Bold', 'Hiragino Sans', sans-serif; }
+button {
+  font-family: 'Hiragino Maru Gothic ProN', 'Arial Rounded MT Bold', 'Hiragino Sans', sans-serif;
+  font-weight: 800; cursor: pointer; border-radius: 999px;
+  background: var(--surface); color: var(--ink);
+  border: 2.5px solid var(--ink); padding: 12px 18px; font-size: 15px;
+  box-shadow: var(--shadow-sm); transition: transform .06s, box-shadow .06s;
+}
+button.primary { background: var(--pink); color: #fff; }
+button:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ink); }
+button:disabled { opacity: .4; box-shadow: none; transform: none; }
+input[type=text] {
+  font-family: inherit; font-weight: 700; background: var(--surface); color: var(--ink);
+  border: 2.5px solid var(--ink); border-radius: 14px; padding: 13px; font-size: 16px; width: 100%;
+  box-shadow: var(--shadow-sm);
+}
+input[type=text]:focus { outline: none; border-color: var(--pink); }
+input[type=text]::placeholder { color: var(--ink-soft); }
+.hidden { display: none !important; }
+.screen { flex: 1; display: flex; flex-direction: column; padding: 20px; gap: 16px; max-width: 560px; width: 100%; margin: 0 auto; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+
+/* ---- HOME ---- */
+#home { justify-content: flex-start; padding-top: 12vh; }
+/* ターゲット（白→青→白→赤の同心円）マーク */
+.roundel { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+#home .logo { text-align: center; margin-bottom: 8px; line-height: 1; }
+#home .logo .wordmark { display: flex; align-items: center; justify-content: center; gap: 8px; }
+#home .logo .roundel { width: 62px; height: 62px; filter: drop-shadow(3px 4px 0 var(--ink)); animation: pop 2.4s ease-in-out infinite; animation-delay: .6s; }
+#home .logo .l {
+  display: inline-block; font-size: 76px; font-weight: 800; letter-spacing: -.02em; margin: 0 2px;
+  font-family: 'Hiragino Maru Gothic ProN', 'Arial Rounded MT Bold', 'Trebuchet MS', sans-serif;
+  text-shadow: 3px 4px 0 var(--ink); animation: pop 2.4s ease-in-out infinite;
+}
+#home .logo .l1 { color: var(--green); animation-delay: 0s; }
+#home .logo .l2 { color: var(--pink); animation-delay: .15s; }
+#home .logo .l3 { color: var(--blue); animation-delay: .3s; }
+#home .logo .l4 { color: var(--yellow); animation-delay: .45s; }
+@keyframes pop {
+  0%, 70%, 100% { transform: translateY(0) rotate(0); }
+  35% { transform: translateY(-10px) rotate(-4deg); }
+  50% { transform: translateY(0) rotate(3deg); }
+}
+#home .logo small { display: block; color: var(--ink-soft); font-size: 13px; font-weight: 700; letter-spacing: .04em; margin-top: 14px; }
+#home .spacer { flex: 1; }
+#codeInput { text-align: center; font-size: 44px; letter-spacing: .18em; padding: 14px; font-weight: 800; }
+#codeInput::placeholder { letter-spacing: .18em; }
+#joinBtn { font-size: 21px; padding: 17px; box-shadow: var(--shadow); }
+#scanBtn { font-size: 15px; background: var(--blue); color: #fff; }
+#createBtn { font-size: 15px; background: var(--yellow); }
+.prompt { color: var(--ink-soft); font-size: 13px; font-weight: 700; }
+.joinrow { display: flex; gap: 8px; max-width: 240px; margin: 0 auto; width: 100%; }
+.joinrow input { text-transform: uppercase; }
+
+/* ---- ROOM ---- */
+#room { padding: 12px; gap: 10px; }
+.topbar { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.topbar .roundel { width: 30px; height: 30px; }
+.topbar .code {
+  color: var(--ink); font-size: 18px; font-weight: 800; letter-spacing: .1em; cursor: pointer;
+  background: var(--yellow); border: 2.5px solid var(--ink); border-radius: 10px; padding: 3px 10px; box-shadow: var(--shadow-sm);
+}
+.topbar .members { color: var(--ink-soft); font-weight: 700; white-space: nowrap; }
+.topbar button { padding: 7px 14px; font-size: 12px; flex-shrink: 0; }
+.topbar #helpBtn { margin-left: auto; width: 32px; height: 32px; padding: 0; border-radius: 50%; font-size: 15px; }
+.topbar #qrBtn { margin-left: 8px; }
+
+/* stage */
+#stage {
+  position: relative; flex: 1; min-height: 45vh; border-radius: var(--radius); overflow: hidden;
+  border: 3px solid var(--ink); background: var(--stage); box-shadow: var(--shadow);
+  display: flex; align-items: center; justify-content: center;
+}
+#stage img#photo, #stage video#vid { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+#idleMsg { color: var(--ink); padding: 24px; width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 16px; }
+#idleMsg .head { text-align: center; font-size: 18px; font-weight: 800; font-family: 'Hiragino Maru Gothic ProN', 'Arial Rounded MT Bold', sans-serif; }
+#idleMsg .step { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 2.5px solid var(--ink); border-radius: 16px; padding: 12px 14px; box-shadow: var(--shadow-sm); }
+#idleMsg .step .emoji { font-size: 30px; flex-shrink: 0; width: 40px; text-align: center; }
+#idleMsg .step .txt { font-size: 14px; font-weight: 700; line-height: 1.4; }
+#idleMsg .step .txt b { color: var(--pink); }
+#idleMsg .step:nth-child(2) { transform: rotate(-1.2deg); }
+#idleMsg .step:nth-child(3) { transform: rotate(1deg); }
+#idleMsg .step:nth-child(4) { transform: rotate(-.6deg); }
+#idleMsg .foot { text-align: center; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+#ownerTag {
+  position: absolute; top: 10px; left: 10px; z-index: 5; font-size: 12px; font-weight: 800;
+  background: var(--pink); border: 2.5px solid var(--ink); color: #fff;
+  padding: 4px 10px; border-radius: 999px; box-shadow: var(--shadow-sm);
+}
+#fx { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+#timeBar { position: absolute; bottom: 0; left: 0; height: 5px; width: 100%; background: var(--pink); z-index: 5; transform-origin: left; transform: scaleX(0); }
+
+/* reactions */
+#reactLayer { position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }
+.floatEmoji { position: absolute; bottom: -40px; font-size: 34px; animation: floatUp 2.2s ease-out forwards; }
+@keyframes floatUp {
+  0% { transform: translateY(0) scale(.6); opacity: 0; }
+  15% { opacity: 1; transform: translateY(-8vh) scale(1.1); }
+  100% { transform: translateY(-70vh) scale(1); opacity: 0; }
+}
+#reactBar { position: absolute; right: 12px; bottom: 76px; z-index: 7; display: flex; flex-direction: column; gap: 8px; }
+#reactBar button { font-size: 23px; width: 48px; height: 48px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--surface); box-shadow: var(--shadow-sm); }
+
+/* queue */
+#queueBox { border: 2.5px solid var(--ink); border-radius: var(--radius); padding: 12px; background: var(--surface); box-shadow: var(--shadow-sm); }
+#queueBox h3 { font-size: 13px; color: var(--ink); margin-bottom: 6px; }
+#queueBox h3 .count { color: var(--pink); }
+#queueList { list-style: none; font-size: 13px; font-weight: 600; max-height: 20vh; overflow-y: auto; }
+#queueList li { padding: 6px 2px; border-bottom: 2px dotted rgba(43,33,64,.15); display: flex; align-items: center; gap: 8px; }
+#queueList li:last-child { border-bottom: none; }
+#queueList li .num { color: var(--pink); font-weight: 800; font-variant-numeric: tabular-nums; }
+#queueList li .fx-name { color: var(--ink-soft); font-size: 11px; margin-left: auto; }
+#queueList li button { padding: 3px 10px; font-size: 11px; box-shadow: 2px 2px 0 var(--ink); }
+
+/* 横画面(スマホ)向けの破綻防止: 縦積みのリアクションを下部の横並びにして高さを確保 */
+@media (orientation: landscape) and (max-height: 560px) {
+  #room { padding: 8px; gap: 6px; }
+  #stage { min-height: 0; }
+  #queueList { max-height: 14vh; }
+  #reactBar { flex-direction: row; left: 50%; right: auto; bottom: 10px; transform: translateX(-50%); gap: 10px; }
+  #reactBar button { width: 44px; height: 44px; font-size: 21px; }
+  #addBtn { bottom: 10px; width: 48px; height: 48px; font-size: 26px; }
+  #prevBtn { bottom: 12px; }
+}
+
+/* ---- modals ---- */
+.modal { position: fixed; inset: 0; background: rgba(43,33,64,.55); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal .box { background: var(--surface); border: 3px solid var(--ink); border-radius: 22px; padding: 22px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 14px; max-height: 85vh; overflow-y: auto; box-shadow: 6px 6px 0 var(--ink); }
+.modal .box h3 { font-size: 19px; text-align: center; }
+.modal .hint { font-size: 12px; font-weight: 700; color: var(--ink-soft); text-align: center; }
+#scanView { position: relative; width: 100%; aspect-ratio: 1; border-radius: 16px; overflow: hidden; border: 2.5px solid var(--ink); background: var(--stage); }
+#scanVideo { width: 100%; height: 100%; object-fit: cover; display: block; }
+#scanFrame { position: absolute; inset: 16%; border: 4px solid var(--pink); border-radius: 16px; box-shadow: 0 0 0 1000px rgba(43,33,64,.35); pointer-events: none; }
+#helpBox .hstep { display: flex; align-items: flex-start; gap: 12px; background: var(--ground); border: 2.5px solid var(--ink); border-radius: 14px; padding: 11px 13px; box-shadow: var(--shadow-sm); }
+#helpBox .hstep .e { font-size: 26px; flex-shrink: 0; width: 34px; text-align: center; }
+#helpBox .hstep b { display: block; font-size: 14px; font-weight: 800; }
+#helpBox .hstep span { display: block; font-size: 12px; font-weight: 600; color: var(--ink-soft); margin-top: 2px; line-height: 1.4; }
+#qrBox { text-align: center; }
+#qrBox #qrImg { background: #fff; padding: 12px; border-radius: 14px; align-self: center; border: 2.5px solid var(--ink); }
+#qrBox #qrImg { text-align: center; }
+#qrBox #qrImg img { display: block; width: 200px; height: 200px; }
+#statusTotals { display: flex; gap: 10px; }
+#statusTotals .tot { flex: 1; text-align: center; border: 2.5px solid var(--ink); border-radius: 14px; padding: 10px 4px; }
+#statusTotals .tot:nth-child(1) { background: rgba(61,220,132,.18); }
+#statusTotals .tot:nth-child(2) { background: rgba(63,185,255,.18); }
+#statusTotals .tot:nth-child(3) { background: rgba(255,93,162,.18); }
+#statusTotals .tot b { display: block; color: var(--ink); font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+#statusTotals .tot span { font-size: 10px; color: var(--ink-soft); font-weight: 700; letter-spacing: .05em; }
+#statusList { list-style: none; max-height: 40vh; overflow-y: auto; }
+#statusList li { display: flex; align-items: center; gap: 8px; padding: 9px 2px; border-bottom: 2px dotted rgba(43,33,64,.15); font-size: 13px; font-weight: 600; }
+#statusList li .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#statusList li .stat { color: var(--ink-soft); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#statusList li .stat b { color: var(--pink); }
+#leaveBtn { background: var(--danger); color: #fff; }
+#statusTitle { cursor: default; }
+#logList { display: flex; flex-direction: column; gap: 8px; max-height: 56vh; overflow-y: auto; }
+#logList .entry { border: 2px solid var(--ink); border-radius: 12px; padding: 9px 11px; background: var(--ground); font-size: 12px; }
+#logList .entry .top { display: flex; justify-content: space-between; gap: 8px; font-weight: 800; margin-bottom: 4px; }
+#logList .entry .top .who { color: var(--pink); }
+#logList .entry .top .when { color: var(--ink-soft); font-weight: 700; font-variant-numeric: tabular-nums; }
+#logList .entry .row { display: flex; gap: 6px; line-height: 1.5; }
+#logList .entry .row .k { color: var(--ink-soft); font-weight: 700; flex-shrink: 0; min-width: 68px; }
+#logList .entry .row .v { font-weight: 600; word-break: break-all; }
+#logList .entry .gps { color: var(--blue); font-weight: 800; }
+#logList .empty { text-align: center; color: var(--ink-soft); font-weight: 700; font-size: 13px; padding: 20px; }
+#qrBox .code { color: var(--ink); font-size: 30px; font-weight: 800; letter-spacing: .2em; }
+#effectGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#prevBtn { position: absolute; bottom: 10px; left: 10px; z-index: 5; font-size: 12px; padding: 7px 12px; }
+#addBtn { position: absolute; bottom: 12px; right: 12px; z-index: 7; width: 58px; height: 58px; border-radius: 50%; padding: 0; font-size: 30px; line-height: 1; display: flex; align-items: center; justify-content: center; background: var(--pink); color: #fff; box-shadow: var(--shadow); }
+#recentGrid { position: absolute; inset: 0; z-index: 3; display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: 5px; padding: 8px; background: var(--stage); }
+#recentGrid .cell { position: relative; overflow: hidden; border-radius: 10px; border: 2.5px solid var(--ink); cursor: pointer; }
+#recentGrid .cell img, #recentGrid .cell video { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+#recentGrid .cell .vbadge { position: absolute; right: 4px; bottom: 4px; font-size: 14px; color: #fff; text-shadow: 0 0 4px #000; }
+#effectGrid button { padding: 14px 6px; font-size: 12px; font-weight: 700; display: flex; flex-direction: column; gap: 5px; align-items: center; }
+#effectGrid button .icon { font-size: 24px; }
+#effectGrid button.sel { background: var(--blue); color: #fff; }
+#previewRow { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+#previewRow img, #previewRow video { width: 30%; max-height: 16vh; object-fit: cover; border-radius: 10px; border: 2.5px solid var(--ink); }
+#toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); border: 2.5px solid var(--ink); color: #fff; font-weight: 700; padding: 11px 20px; border-radius: 999px; font-size: 13px; z-index: 99; box-shadow: var(--shadow-sm); }
+
+/* 入室ウェルカム */
+#welcome { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; background: rgba(255,244,232,.75); backdrop-filter: blur(2px); overflow: hidden; }
+#welcomeCard { text-align: center; animation: welcomePop 1.7s cubic-bezier(.2,1.6,.4,1) forwards; }
+#welcomeCard .wc-emoji { font-size: 72px; animation: wcSpin 1.7s ease-out; }
+#welcomeCard .wc-title { font-size: 42px; font-weight: 800; color: var(--pink); font-family: 'Hiragino Maru Gothic ProN','Arial Rounded MT Bold',sans-serif; text-shadow: 3px 4px 0 var(--ink); margin-top: 6px; }
+#welcomeCard .wc-room { display: inline-block; margin-top: 12px; font-size: 26px; font-weight: 800; letter-spacing: .2em; color: var(--ink); background: var(--yellow); border: 2.5px solid var(--ink); border-radius: 12px; padding: 4px 16px; box-shadow: var(--shadow-sm); }
+@keyframes welcomePop {
+  0% { transform: scale(.4); opacity: 0; }
+  18% { transform: scale(1.06); opacity: 1; }
+  30% { transform: scale(1); }
+  80% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(.9); opacity: 0; }
+}
+@keyframes wcSpin { 0% { transform: rotate(-30deg) scale(.5); } 60% { transform: rotate(12deg) scale(1.1); } 100% { transform: rotate(0) scale(1); } }
+#confetti { position: absolute; inset: 0; pointer-events: none; }
+.confetti-bit { position: absolute; top: -20px; width: 12px; height: 12px; border-radius: 3px; animation: confFall 1.7s ease-in forwards; }
+@keyframes confFall { 0% { transform: translateY(-10vh) rotate(0); opacity: 1; } 100% { transform: translateY(110vh) rotate(720deg); opacity: 1; } }
+
+/* ================= EFFECTS ================= */
+/* 1. countdown */
+#countNum { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 130px; font-weight: 800; color: var(--yellow); -webkit-text-stroke: 5px var(--ink); paint-order: stroke fill; background: var(--stage); font-family: 'Hiragino Maru Gothic ProN', 'Arial Rounded MT Bold', sans-serif; }
+.pulse { animation: pulseNum 1s ease-out; }
+@keyframes pulseNum { 0% { transform: scale(1.8); opacity: 0; } 25% { transform: scale(1); opacity: 1; } 100% { transform: scale(.9); opacity: .9; } }
+/* 2. fade */
+.fx-fade { animation: fxFade 3s ease-in forwards; }
+@keyframes fxFade { from { opacity: 0; filter: brightness(.3); } to { opacity: 1; filter: brightness(1); } }
+/* 3. explosion */
+.fx-explosion { animation: fxExplo .6s cubic-bezier(.2,2.5,.4,1) forwards; }
+@keyframes fxExplo { 0% { transform: scale(0); opacity: 0; } 55% { opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+.particle { position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; border-radius: 50%; animation: fly .9s ease-out forwards; }
+@keyframes fly { 0% { transform: translate(0,0) scale(1); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(.2); opacity: 0; } }
+.smoke { position: absolute; left: 50%; top: 50%; width: 90px; height: 90px; border-radius: 50%; background: radial-gradient(circle, rgba(180,190,180,.55), transparent 70%); animation: puff 1.6s ease-out forwards; }
+@keyframes puff { 0% { transform: translate(-50%,-50%) scale(.3); opacity: .9; } 100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(3.2); opacity: 0; } }
+.flash { position: absolute; inset: 0; background: #fff; animation: flashOut .5s ease-out forwards; }
+@keyframes flashOut { from { opacity: .95; } to { opacity: 0; } }
+/* 4. blur */
+.fx-blur { animation: fxBlur 2.6s ease-out forwards; }
+@keyframes fxBlur { from { filter: blur(50px) saturate(.2); transform: scale(1.06); } to { filter: blur(0) saturate(1); transform: scale(1); } }
+/* 5. zoom */
+.fx-zoom { animation: fxZoom .9s cubic-bezier(.3,1.8,.45,.95) forwards; }
+@keyframes fxZoom { from { transform: scale(0) rotate(-8deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+/* 6. curtain */
+.curtain { position: absolute; top: 0; bottom: 0; width: 51%; background: repeating-linear-gradient(90deg, #ff5da2, #ff5da2 14px, #ff8fc0 14px, #ff8fc0 28px); }
+.curtain.L { left: 0; border-right: 3px solid var(--ink); animation: curL 1.8s ease-in-out .4s forwards; }
+.curtain.R { right: 0; border-left: 3px solid var(--ink); animation: curR 1.8s ease-in-out .4s forwards; }
+@keyframes curL { to { transform: translateX(-105%); } }
+@keyframes curR { to { transform: translateX(105%); } }
+/* 7. glitch */
+.fx-glitch { animation: fxGlitch 1.4s steps(12) forwards; }
+@keyframes fxGlitch {
+  0% { clip-path: inset(40% 0 40% 0); transform: translateX(-8px); filter: hue-rotate(90deg) saturate(3); }
+  20% { clip-path: inset(10% 0 60% 0); transform: translateX(10px); }
+  40% { clip-path: inset(60% 0 5% 0); transform: translateX(-12px); filter: hue-rotate(-60deg); }
+  60% { clip-path: inset(20% 0 30% 0); transform: translateX(6px); }
+  80% { clip-path: inset(5% 0 70% 0); transform: translateX(-4px); filter: hue-rotate(30deg); }
+  100% { clip-path: inset(0 0 0 0); transform: none; filter: none; }
+}
+/* 8. spotlight */
+.fx-spot { animation: fxSpot 3s ease-in-out forwards; }
+@keyframes fxSpot {
+  0% { clip-path: circle(9% at 30% 30%); }
+  30% { clip-path: circle(9% at 70% 60%); }
+  55% { clip-path: circle(11% at 40% 75%); }
+  100% { clip-path: circle(150% at 50% 50%); }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ HOME ============ -->
+<div id="home" class="screen">
+  <div class="logo" id="ptptLogo">
+    <div class="wordmark">
+      <svg class="roundel" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="47" fill="#fff" stroke="#2b2140" stroke-width="3"/><circle cx="50" cy="50" r="35" fill="#1a4a9e"/><circle cx="50" cy="50" r="21" fill="#fff"/><circle cx="50" cy="50" r="11" fill="#d6301f"/></svg><span class="l l1">P</span><span class="l l2">T</span><span class="l l3">P</span><span class="l l4">T</span>
+    </div>
+    <small>ぱっと見せて、ぱっと消える</small>
+  </div>
+  <div class="prompt">なまえ</div>
+  <input type="text" id="nameInput" maxlength="20" placeholder="なまえを入力">
+  <div class="prompt">部屋コードで参加</div>
+  <div class="joinrow">
+    <input type="text" id="codeInput" maxlength="4" placeholder="XXXX">
+  </div>
+  <button class="primary" id="joinBtn">部屋に入る</button>
+  <button id="scanBtn">📷 QRをスキャン</button>
+  <div class="spacer"></div>
+  <button id="createBtn">＋ 新しい部屋をつくる</button>
+</div>
+
+<!-- ============ ROOM ============ -->
+<div id="room" class="screen hidden">
+  <div class="topbar">
+    <svg class="roundel" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="47" fill="#fff" stroke="#2b2140" stroke-width="4"/><circle cx="50" cy="50" r="35" fill="#1a4a9e"/><circle cx="50" cy="50" r="21" fill="#fff"/><circle cx="50" cy="50" r="11" fill="#d6301f"/></svg>
+    <span class="code" id="roomCode" title="タップで部屋のステータス">----</span>
+    <span class="members" id="memberCount">■ 0人</span>
+    <button id="helpBtn" title="使い方">？</button>
+    <button id="qrBtn">QR招待</button>
+  </div>
+
+  <div id="stage">
+    <div id="idleMsg">
+      <div class="head">🎉 さあ、見せ合おう！</div>
+      <div class="step"><span class="emoji">➕</span><span class="txt">右下の <b>＋</b> から写真か動画を選ぶ</span></div>
+      <div class="step"><span class="emoji">✨</span><span class="txt">登場の <b>演出</b> を選ぶとキューに並ぶ</span></div>
+      <div class="step"><span class="emoji">📺</span><span class="txt">みんなの画面に <b>順番に</b> 大きく映る</span></div>
+      <div class="foot">❤️ ボタンでリアクションもできる</div>
+    </div>
+    <img id="photo" class="hidden" alt="">
+    <video id="vid" class="hidden" playsinline muted loop></video>
+    <div id="recentGrid" class="hidden"></div>
+    <div id="fx"></div>
+    <div id="ownerTag" class="hidden"></div>
+    <div id="timeBar"></div>
+    <button id="prevBtn" class="hidden">⏮ 1枚戻る</button>
+    <button id="addBtn" class="primary" title="写真5枚・動画1本まで">＋</button>
+    <div id="reactBar">
+      <button data-e="❤️">❤️</button><button data-e="🔥">🔥</button><button data-e="😂">😂</button><button data-e="👏">👏</button>
+    </div>
+    <div id="reactLayer"></div>
+  </div>
+
+  <div id="queueBox">
+    <h3>キュー <span class="count" id="queueCount">0</span> 枚待ち</h3>
+    <ul id="queueList"></ul>
+  </div>
+
+  <input type="file" id="fileInput" accept="image/*,video/*" multiple class="hidden">
+</div>
+
+<!-- ============ QR modal ============ -->
+<div id="qrModal" class="modal hidden">
+  <div class="box" id="qrBox">
+    <h3>この部屋に招待</h3>
+    <div class="code" id="qrCode"></div>
+    <div id="qrImg"></div>
+    <div class="hint">QRを読むだけで参加できる</div>
+    <button class="primary" id="shareBtn">🔗 リンクを共有</button>
+    <button id="qrClose">閉じる</button>
+  </div>
+</div>
+
+<!-- ============ QR scanner modal ============ -->
+<div id="scanModal" class="modal hidden">
+  <div class="box" id="scanBox">
+    <h3>QRをスキャン</h3>
+    <div id="scanView"><video id="scanVideo" playsinline muted></video><div id="scanFrame"></div></div>
+    <div class="hint">相手のQRコードにカメラを向けて</div>
+    <button id="scanClose">閉じる</button>
+  </div>
+</div>
+
+<!-- ============ help / tutorial modal ============ -->
+<div id="helpModal" class="modal hidden">
+  <div class="box" id="helpBox">
+    <h3>PTPT の使い方</h3>
+    <div class="hstep"><span class="e">🚪</span><div><b>部屋に集まる</b><span>QRかリンクを送るだけ。同じ部屋の人にだけ見える</span></div></div>
+    <div class="hstep"><span class="e">➕</span><div><b>写真・動画を選ぶ</b><span>右下の＋から。写真は5枚・動画は1本まで</span></div></div>
+    <div class="hstep"><span class="e">✨</span><div><b>登場の演出を選ぶ</b><span>選ぶとキューに並ぶ。順番が来たら大きく映る</span></div></div>
+    <div class="hstep"><span class="e">❤️</span><div><b>リアクション</b><span>右側のボタン連打でスタンプが舞う</span></div></div>
+    <div class="hstep"><span class="e">🗑️</span><div><b>保存はされない</b><span>表示中だけ。端末にもサーバーにも残らない</span></div></div>
+    <button class="primary" id="helpClose">わかった！</button>
+  </div>
+</div>
+
+<!-- ============ room status modal ============ -->
+<div id="statusModal" class="modal hidden">
+  <div class="box">
+    <h3 id="statusTitle">部屋のステータス</h3>
+    <div id="statusTotals"></div>
+    <ul id="statusList"></ul>
+    <button id="statusClose">閉じる</button>
+    <button id="leaveBtn">退出する</button>
+  </div>
+</div>
+
+<!-- ============ EXIF log modal ============ -->
+<div id="logModal" class="modal hidden">
+  <div class="box" id="logBox">
+    <h3>写真ログ</h3>
+    <div id="logList"></div>
+    <button id="logClose">閉じる</button>
+  </div>
+</div>
+
+<!-- ============ 入室ウェルカム ============ -->
+<div id="welcome" class="hidden">
+  <div id="welcomeCard">
+    <div class="wc-emoji">🎉</div>
+    <div class="wc-title">入室！</div>
+    <div class="wc-room" id="welcomeRoom"></div>
+  </div>
+  <div id="confetti"></div>
+</div>
+
+<!-- ============ effect select modal ============ -->
+<div id="fxModal" class="modal hidden">
+  <div class="box">
+    <h3>エフェクトをタップしてキューへ</h3>
+    <div id="previewRow"></div>
+    <div id="effectGrid"></div>
+    <button id="fxCancel">やめる</button>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const EFFECTS = [
+  { key: 'none',      label: 'そのまま',       icon: '⚡' },
+  { key: 'countdown', label: 'カウントダウン', icon: '3️⃣' },
+  { key: 'fade',      label: 'じわり',         icon: '🌫' },
+  { key: 'explosion', label: '爆発',           icon: '💥' },
+];
+const FX_LABEL = Object.fromEntries(EFFECTS.map(e => [e.key, e.icon + ' ' + e.label]));
+
+let ws = null, myId = null, myRoom = null, isHost = false;
+let pendingImages = [];
+let session = null; // 再接続用 {room, name}
+let reconnectTimer = null;
+let lastState = null; // 直近のstate（ステータス表示用）
+
+// ---- 接続 ----
+function connect(onOpen) {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}`);
+  ws.onopen = onOpen;
+  ws.onmessage = ev => handle(JSON.parse(ev.data));
+  ws.onclose = () => scheduleReconnect();
+}
+function sendMsg(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
+
+// ---- 自動再接続: 部屋に入っていたら同じ部屋へ勝手に戻る ----
+function scheduleReconnect() {
+  if (!session) return;
+  toast('接続が切れた。再接続中…');
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => {
+    if (ws && ws.readyState === 1) return;
+    connect(() => sendMsg({ type: 'join', room: session.room, name: session.name }));
+  }, 1500);
+}
+// スマホの画面ロック復帰時に即再接続
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && session && (!ws || ws.readyState !== 1)) {
+    clearTimeout(reconnectTimer);
+    connect(() => sendMsg({ type: 'join', room: session.room, name: session.name }));
+  }
+});
+// 25秒ごとのハートビートで無通信切断(Cloudflare約100秒)を防ぐ
+setInterval(() => sendMsg({ type: 'ping' }), 25000);
+
+function myName() {
+  const n = $('nameInput').value.trim() || 'ゲスト';
+  localStorage.setItem('pp_name', n);
+  return n;
+}
+$('nameInput').value = localStorage.getItem('pp_name') || '';
+
+$('createBtn').onclick = () => connect(() => sendMsg({ type: 'create', name: myName() }));
+$('joinBtn').onclick = () => {
+  const code = $('codeInput').value.trim().toUpperCase();
+  if (code.length !== 4) return toast('4文字のコードを入れて');
+  connect(() => sendMsg({ type: 'join', room: code, name: myName() }));
+};
+// URLに ?room=XXXX があればコード欄に自動セット
+const urlRoom = new URLSearchParams(location.search).get('room');
+if (urlRoom) $('codeInput').value = urlRoom.toUpperCase();
+
+// ---- QRスキャンで部屋に入る ----
+let scanStream = null, scanRAF = null, scanCanvas = null;
+$('scanBtn').onclick = openScanner;
+$('scanClose').onclick = closeScanner;
+function openScanner() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return toast('この端末ではカメラを使えない');
+  $('scanModal').classList.remove('hidden');
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(stream => {
+      scanStream = stream;
+      const v = $('scanVideo');
+      v.srcObject = stream;
+      v.play().catch(() => {});
+      scanCanvas = scanCanvas || document.createElement('canvas');
+      scanRAF = requestAnimationFrame(scanLoop);
+    })
+    .catch(() => { toast('カメラを使えなかった（権限を確認）'); closeScanner(); });
+}
+function scanLoop() {
+  if (!scanStream) return;
+  const v = $('scanVideo');
+  if (v.readyState === v.HAVE_ENOUGH_DATA && v.videoWidth) {
+    const c = scanCanvas; c.width = v.videoWidth; c.height = v.videoHeight;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(v, 0, 0, c.width, c.height);
+    const img = ctx.getImageData(0, 0, c.width, c.height);
+    const found = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+    if (found && found.data) return onScanned(found.data);
+  }
+  scanRAF = requestAnimationFrame(scanLoop);
+}
+function onScanned(text) {
+  let room = null;
+  try { room = new URLSearchParams(new URL(text).search).get('room'); } catch {}
+  if (!room) { const m = text.toUpperCase().match(/[A-Z2-9]{4}/); room = m && m[0]; }
+  if (!room) { toast('部屋コードが読めなかった'); scanRAF = requestAnimationFrame(scanLoop); return; }
+  closeScanner();
+  toast('部屋に入る…');
+  connect(() => sendMsg({ type: 'join', room: room.toUpperCase(), name: myName() }));
+}
+function closeScanner() {
+  if (scanRAF) { cancelAnimationFrame(scanRAF); scanRAF = null; }
+  if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  const v = $('scanVideo'); v.srcObject = null;
+  $('scanModal').classList.add('hidden');
+}
+
+// ---- 受信 ----
+function handle(m) {
+  if (m.type === 'joined') {
+    const rejoined = !!session;
+    myId = m.id; myRoom = m.room; isHost = m.isHost || isHost;
+    session = { room: m.room, name: myName() };
+    $('home').classList.add('hidden');
+    $('room').classList.remove('hidden');
+    $('roomCode').textContent = myRoom;
+    history.replaceState(null, '', '?room=' + myRoom);
+    if (rejoined) toast('再接続した');
+    else if (isHost) showQR();
+    else showWelcome(myRoom);
+  } else if (m.type === 'error') {
+    toast(m.message);
+    if (session) { session = null; setTimeout(() => location.href = '/', 1500); }
+  } else if (m.type === 'state') {
+    $('memberCount').textContent = '■ ' + m.members.length + '人';
+    lastState = m;
+    if (!$('statusModal').classList.contains('hidden')) renderStatus();
+    renderQueue(m.queue);
+    $('prevBtn').classList.toggle('hidden', !m.hasPrev);
+  } else if (m.type === 'show') {
+    showPhoto(m.image, m.effect, m.ownerName, m.kind);
+    startTimeBar(m.lead || 0, m.hold || 0);
+    playFx(m.effect);
+  } else if (m.type === 'idle') {
+    clearStage();
+    showRecentGrid(m.recent || []);
+  } else if (m.type === 'react') {
+    floatEmoji(m.emoji);
+  } else if (m.type === 'log') {
+    renderLog(m.entries || []);
+  }
+}
+
+function renderQueue(queue) {
+  $('queueCount').textContent = queue.length;
+  $('queueList').innerHTML = '';
+  queue.forEach((q, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="num">${String(i + 1).padStart(2, '0')}</span><span>${esc(q.ownerName)}</span><span class="fx-name">${FX_LABEL[q.effect] || q.effect}</span>`;
+    if (q.ownerId === myId) {
+      const btn = document.createElement('button');
+      btn.textContent = '取消';
+      btn.onclick = () => sendMsg({ type: 'cancel', qid: q.qid });
+      li.appendChild(btn);
+    }
+    $('queueList').appendChild(li);
+  });
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// 自動送りの残り時間バー。演出(lead)が終わって画像が見えてからカウント開始
+let barTimer = null;
+function startTimeBar(lead, hold) {
+  const bar = $('timeBar');
+  clearTimeout(barTimer);
+  bar.style.transition = 'none';
+  bar.style.transform = 'scaleX(0)';
+  if (!hold) return;
+  barTimer = setTimeout(() => {
+    bar.style.transition = 'none';
+    bar.style.transform = 'scaleX(1)';
+    void bar.offsetWidth; // reflow
+    bar.style.transition = `transform ${hold}ms linear`;
+    bar.style.transform = 'scaleX(0)';
+  }, lead);
+}
+
+// ---- 写真選択(3枚まで) → エフェクトをタップした瞬間にキューへ ----
+$('addBtn').onclick = () => $('fileInput').click();
+$('fileInput').onchange = async e => {
+  let files = [...e.target.files];
+  e.target.value = '';
+  if (!files.length) return;
+  // 上限: 動画1本まで・写真5枚まで（それぞれ独立にカウント）
+  const vids = files.filter(f => f.type.startsWith('video/'));
+  const imgs = files.filter(f => !f.type.startsWith('video/'));
+  let over = '';
+  if (vids.length > 1) { over = '動画は1本まで'; }
+  if (imgs.length > 5) { over = over ? '動画は1本・写真は5枚まで' : '写真は5枚まで'; }
+  if (over) toast(over);
+  files = [...vids.slice(0, 1), ...imgs.slice(0, 5)];
+  toast('読み込み中…');
+  const results = await Promise.all(files.map(f => fileToItem(f).catch(err => ({ err: err.message }))));
+  pendingImages = results.filter(r => r && !r.err);
+  const errs = results.filter(r => r && r.err);
+  if (errs.some(r => r.err === 'size')) toast('動画は32MBまで');
+  else if (errs.some(r => r.err === 'long')) toast('動画は20秒まで');
+  else if (errs.length) toast(`${errs.length}件は読み込めなかった（形式非対応かも）`);
+  if (!pendingImages.length) return;
+  $('previewRow').innerHTML = '';
+  pendingImages.forEach(item => {
+    let el;
+    if (item.kind === 'video') { el = document.createElement('video'); el.muted = true; el.playsInline = true; el.preload = 'metadata'; }
+    else el = document.createElement('img');
+    el.src = item.src;
+    $('previewRow').appendChild(el);
+  });
+  $('fxModal').classList.remove('hidden');
+}
+
+// 写真はリサイズ、動画は12MB/20秒までそのまま送る
+async function fileToItem(f) {
+  if (f.type.startsWith('video/')) {
+    if (f.size > 32 * 1024 * 1024) throw new Error('size');
+    const src = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = () => rej(new Error('read'));
+      r.readAsDataURL(f);
+    });
+    const duration = await new Promise(res => {
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      v.onloadedmetadata = () => res(v.duration);
+      v.onerror = () => res(0);
+      v.src = src;
+    });
+    if (!duration) throw new Error('decode');
+    if (duration > 20.5) throw new Error('long');
+    return { src, kind: 'video', duration, meta: { name: f.name, size: f.size } };
+  }
+  const src = await resizeImage(f, 1600, .85);
+  const exif = await exifSummary(f).catch(() => null);
+  return { src, kind: 'image', duration: 0, meta: { name: f.name, size: f.size, exif } };
+}
+
+// 元ファイルからEXIFの主要項目を抜き出す（リサイズでEXIFは消えるので元から取る）
+function exifSummary(file) {
+  return new Promise(res => {
+    try {
+      EXIF.getData(file, function () {
+        const t = EXIF.getAllTags(this) || {};
+        const gps = (deg, ref) => {
+          if (!deg || !deg.length) return null;
+          let d = deg[0] + (deg[1] || 0) / 60 + (deg[2] || 0) / 3600;
+          if (ref === 'S' || ref === 'W') d = -d;
+          return Math.round(d * 1e6) / 1e6;
+        };
+        const num = v => (v && v.numerator != null) ? (v.denominator ? v.numerator / v.denominator : v.numerator) : v;
+        const out = {
+          make: t.Make || null,
+          model: t.Model || null,
+          datetime: t.DateTimeOriginal || t.DateTime || null,
+          w: t.PixelXDimension || null,
+          h: t.PixelYDimension || null,
+          orientation: t.Orientation || null,
+          lat: gps(t.GPSLatitude, t.GPSLatitudeRef),
+          lon: gps(t.GPSLongitude, t.GPSLongitudeRef),
+          fnumber: num(t.FNumber) || null,
+          exposure: t.ExposureTime ? (num(t.ExposureTime)) : null,
+          iso: t.ISOSpeedRatings || null,
+          focal: num(t.FocalLength) || null,
+        };
+        const has = Object.values(out).some(v => v != null);
+        res(has ? out : null);
+      });
+    } catch { res(null); }
+  });
+}
+
+// HEIC等でImageが失敗する端末対策: createImageBitmap優先 + エラー検知 + タイムアウト
+async function loadBitmap(file) {
+  if (window.createImageBitmap) {
+    try { return await createImageBitmap(file); } catch (e) { /* fallbackへ */ }
+  }
+  return new Promise((res, rej) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    const done = v => { URL.revokeObjectURL(url); clearTimeout(t); v instanceof Error ? rej(v) : res(v); };
+    const t = setTimeout(() => done(new Error('timeout')), 10000);
+    img.onload = () => done(img);
+    img.onerror = () => done(new Error('decode'));
+    img.src = url;
+  });
+}
+async function resizeImage(file, maxSide, quality) {
+  const bmp = await loadBitmap(file);
+  const w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight;
+  const r = Math.min(1, maxSide / Math.max(w, h));
+  const c = document.createElement('canvas');
+  c.width = Math.round(w * r); c.height = Math.round(h * r);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  const out = c.toDataURL('image/jpeg', quality);
+  if (out.length < 100) throw new Error('canvas');
+  return out;
+}
+
+// エフェクトグリッド: タップした瞬間に全選択写真をキューへ
+EFFECTS.forEach(fx => {
+  const b = document.createElement('button');
+  b.innerHTML = `<span class="icon">${fx.icon}</span>${fx.label}`;
+  b.onclick = () => {
+    if (!pendingImages.length) return;
+    // じわり/爆発は全件に効果を適用。それ以外は先頭だけ効果、続きは通常(効果音のみ)
+    const applyAll = fx.key === 'fade' || fx.key === 'explosion';
+    pendingImages.forEach((it, i) => {
+      const eff = (applyAll || i === 0) ? fx.key : 'none';
+      sendMsg({ type: 'enqueue', effect: eff, image: it.src, duration: it.duration, meta: it.meta });
+    });
+    const label = pendingImages.length > 1 ? (applyAll ? `全${pendingImages.length}件・${fx.label}` : `${pendingImages.length}件・先頭${fx.label}`) : fx.label;
+    toast(`キューに積んだ（${label}）`);
+    pendingImages = [];
+    $('fxModal').classList.add('hidden');
+  };
+  $('effectGrid').appendChild(b);
+});
+$('fxCancel').onclick = () => { pendingImages = []; $('fxModal').classList.add('hidden'); };
+
+// ---- ステージ表示とエフェクト ----
+let fxTimers = [];
+function clearFx() { fxTimers.forEach(clearTimeout); fxTimers = []; $('fx').innerHTML = ''; }
+function clearStage() {
+  clearFx();
+  $('recentGrid').classList.add('hidden');
+  $('photo').onclick = null;
+  $('photo').src = '';
+  $('photo').className = 'hidden';
+  const v = $('vid');
+  v.onclick = null; v.pause(); v.removeAttribute('src'); v.load(); v.className = 'hidden';
+  $('ownerTag').classList.add('hidden');
+  $('idleMsg').classList.remove('hidden');
+  clearTimeout(barTimer);
+  const bar = $('timeBar');
+  bar.style.transition = 'none';
+  bar.style.transform = 'scaleX(0)';
+}
+
+// ---- キュー空のときの直近9枚サムネイル一覧 ----
+let lastRecent = [];
+function showRecentGrid(recent) {
+  lastRecent = recent;
+  if (!recent.length) return; // 履歴なしなら通常のidleメッセージのまま
+  clearFx();
+  $('idleMsg').classList.add('hidden');
+  $('photo').classList.add('hidden');
+  $('vid').classList.add('hidden'); $('vid').pause();
+  $('ownerTag').classList.add('hidden');
+  const g = $('recentGrid');
+  g.innerHTML = '';
+  recent.slice(0, 6).forEach(item => {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    let el;
+    if (item.kind === 'video') { el = document.createElement('video'); el.muted = true; el.playsInline = true; el.preload = 'metadata'; }
+    else el = document.createElement('img');
+    el.src = item.image;
+    cell.appendChild(el);
+    if (item.kind === 'video') { const b = document.createElement('div'); b.className = 'vbadge'; b.textContent = '▶'; cell.appendChild(b); }
+    cell.onclick = () => viewRecent(item);
+    g.appendChild(cell);
+  });
+  g.classList.remove('hidden');
+}
+// サムネイルタップ → その1件だけ表示。タップで一覧へ戻る
+function viewRecent(item) {
+  $('recentGrid').classList.add('hidden');
+  const p = stageMedia(item.kind);
+  p.className = '';
+  p.src = item.image;
+  if (item.kind === 'video') { p.muted = true; p.play().catch(() => {}); }
+  $('ownerTag').textContent = '📷 ' + item.ownerName + '（タップで一覧へ）';
+  $('ownerTag').classList.remove('hidden');
+  p.onclick = () => {
+    p.onclick = null;
+    p.className = 'hidden';
+    if (item.kind === 'video') p.pause();
+    $('ownerTag').classList.add('hidden');
+    showRecentGrid(lastRecent);
+  };
+}
+
+// 表示対象の要素を選び、もう一方を片付ける
+function stageMedia(kind) {
+  const isVid = kind === 'video';
+  const p = isVid ? $('vid') : $('photo');
+  const other = isVid ? $('photo') : $('vid');
+  other.onclick = null;
+  other.className = 'hidden';
+  if (other.tagName === 'VIDEO') { other.pause(); other.removeAttribute('src'); other.load(); }
+  else other.src = '';
+  return p;
+}
+
+function showPhoto(src, effect, ownerName, kind) {
+  clearFx();
+  $('idleMsg').classList.add('hidden');
+  $('recentGrid').classList.add('hidden');
+  const p = stageMedia(kind);
+  p.onclick = null;
+  p.className = '';
+  p.src = src;
+  if (kind === 'video') { p.muted = true; p.play().catch(() => {}); }
+  $('ownerTag').textContent = '📷 ' + ownerName;
+  $('ownerTag').classList.remove('hidden');
+
+  const later = (fn, ms) => fxTimers.push(setTimeout(fn, ms));
+
+  if (effect === 'countdown') {
+    p.classList.add('hidden');
+    const n = document.createElement('div'); n.id = 'countNum';
+    $('fx').appendChild(n);
+    [3, 2, 1].forEach((v, i) => later(() => { n.textContent = v; n.classList.remove('pulse'); void n.offsetWidth; n.classList.add('pulse'); }, i * 1000));
+    later(() => { $('fx').innerHTML = ''; p.classList.remove('hidden'); p.classList.add('fx-zoom'); }, 3000);
+
+  } else if (effect === 'explosion') {
+    p.classList.add('hidden');
+    later(() => {
+      const fx = $('fx');
+      fx.appendChild(Object.assign(document.createElement('div'), { className: 'flash' }));
+      for (let i = 0; i < 26; i++) {
+        const el = document.createElement('div');
+        el.className = 'particle';
+        const a = Math.random() * Math.PI * 2, d = 80 + Math.random() * 220;
+        el.style.setProperty('--dx', Math.cos(a) * d + 'px');
+        el.style.setProperty('--dy', Math.sin(a) * d + 'px');
+        el.style.background = ['#ff5da2', '#3fb9ff', '#ffcf3f', '#3ddc84'][i % 4];
+        fx.appendChild(el);
+      }
+      for (let i = 0; i < 10; i++) {
+        const s = document.createElement('div');
+        s.className = 'smoke';
+        const a = Math.random() * Math.PI * 2, d = 30 + Math.random() * 120;
+        s.style.setProperty('--dx', Math.cos(a) * d + 'px');
+        s.style.setProperty('--dy', Math.sin(a) * d + 'px');
+        s.style.animationDelay = (Math.random() * .3) + 's';
+        fx.appendChild(s);
+      }
+      p.classList.remove('hidden'); p.classList.add('fx-explosion');
+      later(() => $('fx').innerHTML = '', 1800);
+    }, 300);
+
+  } else if (effect === 'curtain') {
+    const L = document.createElement('div'); L.className = 'curtain L';
+    const R = document.createElement('div'); R.className = 'curtain R';
+    $('fx').append(L, R);
+    later(() => $('fx').innerHTML = '', 2400);
+
+  } else if (effect === 'fade')   { p.classList.add('fx-fade'); }
+  else if (effect === 'blur')     { p.classList.add('fx-blur'); }
+  else if (effect === 'zoom')     { p.classList.add('fx-zoom'); }
+  else if (effect === 'glitch')   { p.classList.add('fx-glitch'); }
+  else if (effect === 'spot')     { p.classList.add('fx-spot'); }
+  // effect === 'none'（途中参加）は即表示
+}
+
+// ---- 1枚戻る ----
+$('prevBtn').onclick = () => { sendMsg({ type: 'prev' }); beep(440, 0, 0.08, 'square', 0.12); };
+
+// ---- 効果音(WebAudio合成、音源ファイル不要) ----
+// ブラウザの自動再生制限のため、最初のタップでAudioContextを起こす
+let actx = null;
+function ensureAudio() {
+  if (!actx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) actx = new AC(); }
+  if (actx && actx.state === 'suspended') actx.resume();
+  return actx;
+}
+['click', 'touchend'].forEach(ev => document.addEventListener(ev, ensureAudio, { passive: true }));
+
+function beep(freq, delay = 0, dur = 0.15, type = 'sine', vol = 0.2) {
+  const ac = ensureAudio(); if (!ac || ac.state !== 'running') return;
+  const t = ac.currentTime + delay;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(ac.destination);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+function pop(delay = 0) { // ポンッ
+  const ac = ensureAudio(); if (!ac || ac.state !== 'running') return;
+  const t = ac.currentTime + delay;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(500, t);
+  o.frequency.exponentialRampToValueAtTime(120, t + 0.12);
+  g.gain.setValueAtTime(0.35, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t + 0.2);
+}
+function boom(delay = 0) { // ドカーン(ノイズ+ローパス減衰)
+  const ac = ensureAudio(); if (!ac || ac.state !== 'running') return;
+  const t = ac.currentTime + delay;
+  const len = Math.floor(ac.sampleRate * 1.2);
+  const buf = ac.createBuffer(1, len, ac.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+  const src = ac.createBufferSource(); src.buffer = buf;
+  const f = ac.createBiquadFilter(); f.type = 'lowpass';
+  f.frequency.setValueAtTime(3000, t);
+  f.frequency.exponentialRampToValueAtTime(80, t + 1.0);
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.6, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
+  src.connect(f); f.connect(g); g.connect(ac.destination);
+  src.start(t);
+}
+function swell(delay = 0, dur = 3) { // じわ〜(Aメジャーのパッド)
+  const ac = ensureAudio(); if (!ac || ac.state !== 'running') return;
+  const t = ac.currentTime + delay;
+  [220, 277.18, 329.63].forEach(fr => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(fr, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.08, t + dur * 0.7);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.1);
+  });
+}
+function tada(delay = 0) { // ジャーン(Cメジャーアルペジオ)
+  [523.25, 659.25, 783.99, 1046.5].forEach((fr, i) => beep(fr, delay + i * 0.06, 0.5, 'triangle', 0.15));
+}
+function playFx(effect) {
+  if (effect === 'none') pop();
+  else if (effect === 'countdown') { [0, 1, 2].forEach(i => beep(880, i, 0.12, 'square', 0.15)); tada(3.0); }
+  else if (effect === 'fade') swell(0, 3);
+  else if (effect === 'explosion') boom(0.3);
+}
+
+// ---- リアクション ----
+document.querySelectorAll('#reactBar button').forEach(b => {
+  b.onclick = () => sendMsg({ type: 'react', emoji: b.dataset.e });
+});
+function floatEmoji(e) {
+  const el = document.createElement('div');
+  el.className = 'floatEmoji';
+  el.textContent = e;
+  el.style.left = (10 + Math.random() * 80) + '%';
+  $('reactLayer').appendChild(el);
+  setTimeout(() => el.remove(), 2300);
+}
+
+// ---- QR ----
+function showQR() {
+  $('qrCode').textContent = myRoom;
+  const url = location.origin + '/?room=' + myRoom;
+  const qr = qrcode(0, 'M');
+  qr.addData(url); qr.make();
+  $('qrImg').innerHTML = qr.createImgTag(5, 8);
+  $('qrModal').classList.remove('hidden');
+}
+$('qrBtn').onclick = showQR;
+$('qrClose').onclick = () => $('qrModal').classList.add('hidden');
+$('helpBtn').onclick = () => $('helpModal').classList.remove('hidden');
+$('helpClose').onclick = () => $('helpModal').classList.add('hidden');
+
+// ---- 部屋ステータス（部屋番号タップで表示） ----
+$('roomCode').onclick = () => { if (lastState) { renderStatus(); $('statusModal').classList.remove('hidden'); } };
+$('statusClose').onclick = () => $('statusModal').classList.add('hidden');
+
+// 「部屋のステータス」の見出しをタップで写真ログを表示（見た目は見出しのまま）
+$('statusTitle').onclick = () => { sendMsg({ type: 'getlog' }); $('logModal').classList.remove('hidden'); };
+$('logClose').onclick = () => $('logModal').classList.add('hidden');
+function renderLog(entries) {
+  const box = $('logList');
+  box.innerHTML = '';
+  if (!entries.length) { box.innerHTML = '<div class="empty">まだ写真の記録がない</div>'; return; }
+  const pad = n => String(n).padStart(2, '0');
+  [...entries].reverse().forEach(e => {
+    const d = new Date(e.ts);
+    const when = `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const rows = [];
+    const add = (k, v) => { if (v != null && v !== '') rows.push(`<div class="row"><span class="k">${k}</span><span class="v">${esc(String(v))}</span></div>`); };
+    const x = e.exif || {};
+    if (e.name) add('ファイル', e.name);
+    if (e.size) add('サイズ', (e.size / 1024 / 1024).toFixed(2) + 'MB');
+    if (e.kind === 'video') add('種類', '動画');
+    if (x.make || x.model) add('カメラ', [x.make, x.model].filter(Boolean).join(' '));
+    add('撮影日時', x.datetime);
+    if (x.w && x.h) add('解像度', `${x.w}×${x.h}`);
+    if (x.fnumber) add('F値', 'f/' + x.fnumber);
+    if (x.exposure) add('SS', x.exposure < 1 ? '1/' + Math.round(1 / x.exposure) + '秒' : x.exposure + '秒');
+    if (x.iso) add('ISO', x.iso);
+    if (x.focal) add('焦点距離', x.focal + 'mm');
+    let gpsRow = '';
+    if (x.lat != null && x.lon != null) {
+      gpsRow = `<div class="row"><span class="k">位置</span><span class="v gps"><a href="https://maps.google.com/?q=${x.lat},${x.lon}" target="_blank" rel="noopener">${x.lat}, ${x.lon}</a></span></div>`;
+    }
+    const div = document.createElement('div');
+    div.className = 'entry';
+    div.innerHTML = `<div class="top"><span class="who">${esc(e.ownerName)}</span><span class="when">${when}</span></div>${rows.join('')}${gpsRow}` || '';
+    box.appendChild(div);
+  });
+}
+// 退出: 再接続を止めて接続を切り、最初の画面へ戻す
+$('leaveBtn').onclick = () => {
+  session = null;
+  clearTimeout(reconnectTimer);
+  if (ws) { ws.onclose = null; ws.close(); ws = null; }
+  location.href = '/';
+};
+function renderStatus() {
+  const s = lastState; if (!s) return;
+  $('statusTotals').innerHTML =
+    `<div class="tot"><b>${s.members.length}</b><span>参加者</span></div>` +
+    `<div class="tot"><b>${s.totals.posted}</b><span>投稿</span></div>` +
+    `<div class="tot"><b>${s.totals.reactions}</b><span>いいね</span></div>`;
+  // 投稿数の多い順
+  const members = [...s.members].sort((a, b) => b.posted - a.posted);
+  $('statusList').innerHTML = '';
+  members.forEach(x => {
+    const li = document.createElement('li');
+    const nm = document.createElement('span');
+    nm.className = 'nm';
+    nm.textContent = (x.isHost ? '👑 ' : '') + x.name + (x.id === myId ? '（あなた）' : '');
+    const st = document.createElement('span');
+    st.className = 'stat';
+    st.innerHTML = `📷 <b>${x.posted}</b>　❤️ <b>${x.reactions}</b>`;
+    li.append(nm, st);
+    $('statusList').appendChild(li);
+  });
+}
+
+// リンク共有: OSの共有シート(メール/LINE/AirDrop/QuickShare等)。非対応ならコピー
+$('shareBtn').onclick = async () => {
+  const url = location.origin + '/?room=' + myRoom;
+  const data = { title: 'PTPT', text: `PTPTに参加しよう（部屋 ${myRoom}）`, url };
+  if (navigator.share) {
+    try { await navigator.share(data); return; }
+    catch (e) { if (e.name === 'AbortError') return; } // ユーザーがキャンセル
+  }
+  try { await navigator.clipboard.writeText(url); toast('リンクをコピーした'); }
+  catch { toast(url); }
+};
+
+// ---- PWA ----
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+// ---- 入室ウェルカム演出 ----
+function showWelcome(room) {
+  const el = $('welcome');
+  $('welcomeRoom').textContent = room;
+  el.classList.remove('hidden');
+  // 紙吹雪
+  const conf = $('confetti');
+  conf.innerHTML = '';
+  const colors = ['#ff5da2', '#3fb9ff', '#ffcf3f', '#3ddc84'];
+  for (let i = 0; i < 36; i++) {
+    const b = document.createElement('div');
+    b.className = 'confetti-bit';
+    b.style.left = Math.random() * 100 + 'vw';
+    b.style.background = colors[i % colors.length];
+    b.style.animationDelay = (Math.random() * .3) + 's';
+    b.style.transform = `scale(${.7 + Math.random()})`;
+    conf.appendChild(b);
+  }
+  tada(0);
+  clearTimeout(showWelcome._t);
+  showWelcome._t = setTimeout(() => el.classList.add('hidden'), 1750);
+}
+
+// ---- toast ----
+let toastTimer = null;
+function toast(msg) {
+  let t = $('toast');
+  if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.remove(), 2500);
+}
+</script>
+</body>
+</html>
