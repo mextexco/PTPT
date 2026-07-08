@@ -129,7 +129,13 @@ input[type=text]::placeholder { color: var(--ink-soft); }
   padding: 4px 10px; border-radius: 999px; box-shadow: var(--shadow-sm);
 }
 #fx { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
-#timeBar { position: absolute; bottom: 0; left: 0; height: 5px; width: 100%; background: var(--pink); z-index: 5; transform-origin: left; transform: scaleX(0); }
+/* 残り時間リング: stageの縁を12時から時計回りに描いていく（満了＝切替） */
+#timeRing { position: absolute; inset: 6px; z-index: 5; pointer-events: none; overflow: visible; }
+#timeRing path { fill: none; vector-effect: non-scaling-stroke; }
+#timeRing .track { stroke: rgba(43, 33, 64, .16); stroke-width: 5; }
+#timeRing .fill { stroke: var(--pink); stroke-width: 5; stroke-dasharray: 100; stroke-dashoffset: 100; filter: drop-shadow(0 0 2px rgba(0,0,0,.4)); }
+#timeRing.ending .fill { animation: ringPulse .45s ease-in-out infinite; }
+@keyframes ringPulse { 0%, 100% { stroke: var(--pink); stroke-width: 5; } 50% { stroke: #fff; stroke-width: 8; } }
 
 /* reactions */
 #reactLayer { position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }
@@ -331,7 +337,10 @@ input[type=text]::placeholder { color: var(--ink-soft); }
     <div id="recentGrid" class="hidden"></div>
     <div id="fx"></div>
     <div id="ownerTag" class="hidden"></div>
-    <div id="timeBar"></div>
+    <svg id="timeRing" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <path class="track" d="M50 0 H100 V100 H0 V0 Z" pathLength="100"></path>
+      <path class="fill" d="M50 0 H100 V100 H0 V0 Z" pathLength="100"></path>
+    </svg>
     <button id="prevBtn" class="hidden">⏮ 1枚戻る</button>
     <button id="addBtn" class="primary" title="写真5枚・動画1本まで">＋</button>
     <div id="reactBar">
@@ -588,20 +597,25 @@ function renderQueue(queue) {
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-// 自動送りの残り時間バー。演出(lead)が終わって画像が見えてからカウント開始
-let barTimer = null;
+// 残り時間リング。演出(lead)が終わって画像が見えてから、hold の間に12時→時計回りで満ちる
+// pathLength="100" で長さを正規化しているので dashoffset は 100(空)→0(満) で扱える
+let barTimer = null, barTimer2 = null;
 function startTimeBar(lead, hold) {
-  const bar = $('timeBar');
-  clearTimeout(barTimer);
-  bar.style.transition = 'none';
-  bar.style.transform = 'scaleX(0)';
+  const ring = $('timeRing');
+  const fill = ring.querySelector('.fill');
+  clearTimeout(barTimer); clearTimeout(barTimer2);
+  ring.classList.remove('ending');
+  fill.style.transition = 'none';
+  fill.style.strokeDashoffset = 100; // 空
   if (!hold) return;
   barTimer = setTimeout(() => {
-    bar.style.transition = 'none';
-    bar.style.transform = 'scaleX(1)';
-    void bar.offsetWidth; // reflow
-    bar.style.transition = `transform ${hold}ms linear`;
-    bar.style.transform = 'scaleX(0)';
+    fill.style.transition = 'none';
+    fill.style.strokeDashoffset = 100;
+    void ring.getBoundingClientRect(); // reflow
+    fill.style.transition = `stroke-dashoffset ${hold}ms linear`;
+    fill.style.strokeDashoffset = 0; // 満ちる
+    // 残りわずかで縁を点滅させて「もうすぐ切替」を伝える
+    barTimer2 = setTimeout(() => ring.classList.add('ending'), Math.max(0, hold - 800));
   }, lead);
 }
 
@@ -796,10 +810,12 @@ function clearStage() {
   v.onclick = null; v.pause(); v.removeAttribute('src'); v.load(); v.className = 'hidden';
   $('ownerTag').classList.add('hidden');
   $('idleMsg').classList.remove('hidden');
-  clearTimeout(barTimer);
-  const bar = $('timeBar');
-  bar.style.transition = 'none';
-  bar.style.transform = 'scaleX(0)';
+  clearTimeout(barTimer); clearTimeout(barTimer2);
+  const ring = $('timeRing');
+  ring.classList.remove('ending');
+  const fill = ring.querySelector('.fill');
+  fill.style.transition = 'none';
+  fill.style.strokeDashoffset = 100;
 }
 
 // ---- キュー空のときの直近9枚サムネイル一覧 ----

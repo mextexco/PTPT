@@ -14,7 +14,11 @@ const server = http.createServer((req, res) => {
   if (file === '/') file = '/index.html';
   const fp = path.join(PUBLIC, path.normalize(file));
   if (!fp.startsWith(PUBLIC) || !fs.existsSync(fp)) { res.writeHead(404); return res.end('not found'); }
-  res.writeHead(200, { 'Content-Type': MIME[path.extname(fp)] || 'application/octet-stream' });
+  const headers = { 'Content-Type': MIME[path.extname(fp)] || 'application/octet-stream' };
+  // index.html と sw.js は毎回検証させて更新を確実に届ける（キャッシュで古い版を掴ませない）
+  const base = path.basename(fp);
+  if (base === 'index.html' || base === 'sw.js') headers['Cache-Control'] = 'no-cache';
+  res.writeHead(200, headers);
   fs.createReadStream(fp).pipe(res);
 });
 
