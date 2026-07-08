@@ -133,8 +133,18 @@ wss.on('connection', (ws) => {
 
     } else if (msg.type === 'join') {
       const code = String(msg.room || '').toUpperCase();
+      if (!code) { send(ws, { type: 'error', message: 'コードを入れて。' }); room = null; return; }
       room = rooms.get(code);
-      if (!room) { send(ws, { type: 'error', message: '部屋が見つからない。コードを確認して。' }); room = null; return; }
+      if (!room) {
+        // 指定コードの部屋が無ければ新規作成し、この人をホストにする
+        room = { clients: new Map(), queue: [], current: null, hostId: id, history: [], totalPosted: 0, totalReactions: 0, exifLog: [] };
+        rooms.set(code, room);
+        roomCode = code;
+        room.clients.set(id, { ws, name, posted: 0, reactions: 0 });
+        send(ws, { type: 'joined', room: roomCode, id, isHost: true });
+        broadcastState(room);
+        return;
+      }
       roomCode = code;
       room.clients.set(id, { ws, name, posted: 0, reactions: 0 });
       send(ws, { type: 'joined', room: roomCode, id, isHost: false });
