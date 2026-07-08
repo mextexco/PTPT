@@ -591,14 +591,14 @@ function renderQueue(queue) {
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-// 切替の3秒前・2秒前・1秒前に画面を点滅。lead(演出)は別勘定、holdが表示時間
+// 切替の2秒前・1秒前に点滅（2回）、3拍目＝画面切替。lead(演出)は別勘定、holdが表示時間
 let flashTimers = [];
 function startTimeBar(lead, hold) {
   flashTimers.forEach(clearTimeout);
   flashTimers = [];
   if (!hold) return;
   const flash = $('countFlash');
-  for (const n of [3, 2, 1]) {
+  for (const n of [2, 1]) {
     if (hold < n * 1000) continue; // その秒数ぶんの表示時間がなければスキップ
     const at = lead + hold - n * 1000;
     flashTimers.push(setTimeout(() => {
