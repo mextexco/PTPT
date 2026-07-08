@@ -141,6 +141,9 @@ wss.on('connection', (ws) => {
       // 途中参加者にも現在の状況を見せる（表示中なら即表示、idleならサムネイル一覧）
       if (room.current) send(ws, { type: 'show', image: room.current.image, kind: room.current.kind, effect: 'none', ownerId: room.current.ownerId, ownerName: room.current.ownerName });
       else if (room.history.length) send(ws, { type: 'idle', recent: recentPayload(room) });
+      // 既存メンバーに入室を通知（本人以外）
+      const joinMsg = JSON.stringify({ type: 'notice', kind: 'join', name });
+      for (const [cid, c] of room.clients) if (cid !== id && c.ws.readyState === 1) c.ws.send(joinMsg);
       broadcastState(room);
 
     } else if (msg.type === 'ping') {

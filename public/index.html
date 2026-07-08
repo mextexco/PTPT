@@ -564,6 +564,8 @@ function handle(m) {
     showRecentGrid(m.recent || []);
   } else if (m.type === 'react') {
     floatEmoji(m.emoji);
+  } else if (m.type === 'notice') {
+    if (m.kind === 'join') joinCue(m.name);
   } else if (m.type === 'log') {
     renderLog(m.entries || []);
   }
@@ -966,6 +968,14 @@ function floatEmoji(e) {
   el.style.left = (10 + Math.random() * 80) + '%';
   $('reactLayer').appendChild(el);
   setTimeout(() => el.remove(), 2300);
+}
+
+// 誰かが入室したら既存メンバー側で反応: トースト＋👋が舞う＋チャイム
+function joinCue(name) {
+  toast('👋 ' + (name || 'だれか') + ' さんが入室！');
+  for (let i = 0; i < 4; i++) setTimeout(() => floatEmoji('👋'), i * 160);
+  beep(660, 0, 0.12, 'triangle', 0.18);
+  beep(880, 0.12, 0.16, 'triangle', 0.18);
 }
 
 // ---- QR ----
