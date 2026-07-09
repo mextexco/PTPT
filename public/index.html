@@ -183,18 +183,42 @@ input[type=text]::placeholder { color: var(--ink-soft); }
 #qrBox #qrImg { background: #fff; padding: 12px; border-radius: 14px; align-self: center; border: 2.5px solid var(--ink); }
 #qrBox #qrImg { text-align: center; }
 #qrBox #qrImg img { display: block; width: 200px; height: 200px; }
-#statusTotals { display: flex; gap: 10px; }
-#statusTotals .tot { flex: 1; text-align: center; border: 2.5px solid var(--ink); border-radius: 14px; padding: 10px 4px; }
-#statusTotals .tot:nth-child(1) { background: rgba(61,220,132,.18); }
-#statusTotals .tot:nth-child(2) { background: rgba(63,185,255,.18); }
-#statusTotals .tot:nth-child(3) { background: rgba(255,93,162,.18); }
-#statusTotals .tot b { display: block; color: var(--ink); font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
-#statusTotals .tot span { font-size: 10px; color: var(--ink-soft); font-weight: 700; letter-spacing: .05em; }
-#statusList { list-style: none; max-height: 40vh; overflow-y: auto; }
-#statusList li { display: flex; align-items: center; gap: 8px; padding: 9px 2px; border-bottom: 2px dotted rgba(43,33,64,.15); font-size: 13px; font-weight: 600; }
-#statusList li .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#statusList li .stat { color: var(--ink-soft); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-#statusList li .stat b { color: var(--pink); }
+.totals { display: flex; gap: 10px; }
+.totals .tot { flex: 1; text-align: center; border: 2.5px solid var(--ink); border-radius: 14px; padding: 10px 4px; }
+.totals .tot:nth-child(1) { background: rgba(61,220,132,.18); }
+.totals .tot:nth-child(2) { background: rgba(63,185,255,.18); }
+.totals .tot:nth-child(3) { background: rgba(255,93,162,.18); }
+.totals .tot b { display: block; color: var(--ink); font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.totals .tot span { font-size: 10px; color: var(--ink-soft); font-weight: 700; letter-spacing: .05em; }
+.mlist { list-style: none; }
+.mlist li { display: flex; align-items: center; gap: 8px; padding: 9px 2px; border-bottom: 2px dotted rgba(43,33,64,.15); font-size: 13px; font-weight: 600; }
+.mlist li .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mlist li .stat { color: var(--ink-soft); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mlist li .stat b { color: var(--pink); }
+#statusModal .mlist { max-height: 40vh; overflow-y: auto; }
+/* PC(広い横長画面)のときだけ左右3カラム。スマホ/タブレット縦は従来の縦積みのまま */
+#statusPanel { display: none; }
+@media (min-width: 1000px) {
+  #room {
+    max-width: 1360px;
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr) 280px;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "top top top" "queue stage status";
+    gap: 14px; align-content: stretch;
+  }
+  #room .topbar { grid-area: top; }
+  #room #stage { grid-area: stage; aspect-ratio: 16 / 9; width: 100%; max-height: 100%; margin: auto; align-self: center; }
+  #room #queueBox { grid-area: queue; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+  #room #queueBox #queueList { overflow-y: auto; min-height: 0; }
+  #room #statusPanel {
+    grid-area: status; display: flex; flex-direction: column; overflow: hidden; min-height: 0;
+    border: 2.5px solid var(--ink); border-radius: var(--radius); padding: 12px; background: var(--surface); box-shadow: var(--shadow-sm);
+  }
+  #room #statusPanel h3 { font-size: 13px; margin-bottom: 10px; }
+  #room #statusPanel .totals { margin-bottom: 10px; }
+  #room #statusPanel .mlist { overflow-y: auto; min-height: 0; }
+}
 #leaveBtn { background: var(--danger); color: #fff; }
 #statusTitle { cursor: default; }
 #logList { display: flex; flex-direction: column; gap: 8px; max-height: 56vh; overflow-y: auto; }
@@ -348,6 +372,13 @@ input[type=text]::placeholder { color: var(--ink-soft); }
     <ul id="queueList"></ul>
   </div>
 
+  <!-- PC(広い画面)のときだけ右に常設表示する部屋ステータス。スマホは従来のモーダル -->
+  <aside id="statusPanel">
+    <h3>部屋のステータス</h3>
+    <div id="statusTotals2" class="totals"></div>
+    <ul id="statusList2" class="mlist"></ul>
+  </aside>
+
   <input type="file" id="fileInput" accept="image/*,video/*" multiple class="hidden">
 </div>
 
@@ -390,8 +421,8 @@ input[type=text]::placeholder { color: var(--ink-soft); }
 <div id="statusModal" class="modal hidden">
   <div class="box">
     <h3 id="statusTitle">部屋のステータス</h3>
-    <div id="statusTotals"></div>
-    <ul id="statusList"></ul>
+    <div id="statusTotals" class="totals"></div>
+    <ul id="statusList" class="mlist"></ul>
     <button id="statusClose">閉じる</button>
     <button id="leaveBtn">退出する</button>
   </div>
@@ -555,7 +586,7 @@ function handle(m) {
   } else if (m.type === 'state') {
     $('memberCount').textContent = '■ ' + m.members.length + '人';
     lastState = m;
-    if (!$('statusModal').classList.contains('hidden')) renderStatus();
+    renderStatus(); // PC右パネルとモーダル両方を最新に（モーダルが閉じていても軽いので更新）
     renderQueue(m.queue);
     $('prevBtn').classList.toggle('hidden', !m.hasPrev);
   } else if (m.type === 'show') {
@@ -1077,15 +1108,16 @@ $('leaveBtn').onclick = () => {
   if (ws) { ws.onclose = null; ws.close(); ws = null; }
   location.href = '/';
 };
-function renderStatus() {
-  const s = lastState; if (!s) return;
-  $('statusTotals').innerHTML =
+// モーダル(スマホ)とPC右パネル、両方の中身を更新する
+function fillStatus(totalsEl, listEl, s) {
+  if (!totalsEl || !listEl) return;
+  totalsEl.innerHTML =
     `<div class="tot"><b>${s.members.length}</b><span>参加者</span></div>` +
     `<div class="tot"><b>${s.totals.posted}</b><span>投稿</span></div>` +
     `<div class="tot"><b>${s.totals.reactions}</b><span>いいね</span></div>`;
   // 投稿数の多い順
   const members = [...s.members].sort((a, b) => b.posted - a.posted);
-  $('statusList').innerHTML = '';
+  listEl.innerHTML = '';
   members.forEach(x => {
     const li = document.createElement('li');
     const nm = document.createElement('span');
@@ -1095,8 +1127,13 @@ function renderStatus() {
     st.className = 'stat';
     st.innerHTML = `📷 <b>${x.posted}</b>　❤️ <b>${x.reactions}</b>`;
     li.append(nm, st);
-    $('statusList').appendChild(li);
+    listEl.appendChild(li);
   });
+}
+function renderStatus() {
+  const s = lastState; if (!s) return;
+  fillStatus($('statusTotals'), $('statusList'), s);       // スマホ用モーダル
+  fillStatus($('statusTotals2'), $('statusList2'), s);     // PC用右パネル
 }
 
 // リンク共有: OSの共有シート(メール/LINE/AirDrop/QuickShare等)。非対応ならコピー
