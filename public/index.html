@@ -208,7 +208,8 @@ input[type=text]::placeholder { color: var(--ink-soft); }
     gap: 14px; align-content: stretch;
   }
   #room .topbar { grid-area: top; }
-  #room #stage { grid-area: stage; aspect-ratio: 16 / 9; width: 100%; max-height: 100%; margin: auto; align-self: center; }
+  /* ステージは中央セル全体に広げる。写真は contain なので縦長は縦いっぱい・横長は横いっぱいで最大表示 */
+  #room #stage { grid-area: stage; min-height: 0; }
   #room #queueBox { grid-area: queue; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
   #room #queueBox #queueList { overflow-y: auto; min-height: 0; }
   #room #statusPanel {
