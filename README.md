@@ -99,7 +99,7 @@ photoparty/
 ### 確認コマンド
 ```bash
 pgrep -fl "cloudflared tunnel"                        # トンネル生存
-grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' /tmp/photoparty-cf.log | head -1   # 今のURL
+grep -ao 'https://[a-z0-9-]*\.trycloudflare\.com' /tmp/photoparty-cf.log | head -1   # 今のURL
 ```
 
 ### 注意点
@@ -129,7 +129,7 @@ Macを起動した後、または「今日の公開URLが欲しい」とき。**
 |---|---|
 | 部屋が作れない/画面が出ない | `pgrep -fl "node server.js"` と `pgrep -fl "cloudflared tunnel"` で生存確認。いなければ `start.sh` を再実行 |
 | トンネルが切れた(`Tunnel not found`) | `start.sh` を再実行して新URLを取得 |
-| URLを忘れた | `grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' /tmp/photoparty-cf.log \| head -1` |
+| URLを忘れた | `grep -ao 'https://[a-z0-9-]*\.trycloudflare\.com' /tmp/photoparty-cf.log \| head -1` |
 | 端末QRを出したい | `brew install qrencode`（`start.sh` が自動でQR表示に使う） |
 
 ### 参考: URL固定にしたい場合

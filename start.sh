@@ -24,9 +24,10 @@ echo "■ トンネル起動中…（最大60秒待つ）"
 URL=""
 for i in $(seq 1 30); do
   sleep 2
-  URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' "$TLOG" | head -1)
+  # cloudflaredのログはANSI制御コードを含むためgrepに -a（テキスト扱い）必須
+  URL=$(grep -ao 'https://[a-z0-9-]*\.trycloudflare\.com' "$TLOG" | head -1)
   # URLが出て かつ エッジに接続登録できたら確立とみなす
-  if [ -n "$URL" ] && grep -q "Registered tunnel connection" "$TLOG"; then break; fi
+  if [ -n "$URL" ] && grep -aq "Registered tunnel connection" "$TLOG"; then break; fi
   URL=""
 done
 
