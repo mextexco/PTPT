@@ -36,7 +36,7 @@
 ### 技術構成
 - **サーバ**: Node.js 標準`http` + `ws`(WebSocketServer)。`server.js` 単体。DBなし・全てメモリ上
 - **クライアント**: `public/index.html` 単一ファイル（HTML+CSS+JS全部入り）。PWA（manifest + Service Worker）
-- **公開**: Tailscale Funnel でローカル3000番をインターネット公開（後述）
+- **公開**: cloudflared クイックトンネルでローカル3000番をインターネット公開（後述。URLは起動ごとに変わる）
 - **画像伝送**: base64 data URL をWebSocketで送受信（サーバRAM経由で全員に配信）
 
 ### ファイル構成
@@ -49,8 +49,8 @@ photoparty/
 │   ├── manifest.json    PWAマニフェスト
 │   ├── *.min.js         qrcode / jsqr / exif ライブラリ
 │   └── icon-*.png       アイコン
-├── start.sh             サーバ起動（Tailscale Funnel運用・推奨）
-├── restart.sh           サーバ+cloudflaredトンネル再起動（旧方式・予備）
+├── start.sh             起動: node+cloudflared を立て公開URLとQRを表示（これ1つ）
+├── restart.sh           旧: cloudflared再起動スクリプト（start.shに統合済み・予備）
 └── README.md            このファイル
 ```
 
@@ -59,7 +59,7 @@ photoparty/
 ## 2. 使用方法（参加者向け）
 
 ### 部屋を作る（ホスト＝画面を出す人）
-1. 公開URLをブラウザで開く: **https://shumacbook.tailfa36ca.ts.net**
+1. ホスト機で `~/photoparty/start.sh` を実行 → 表示された**公開URL**（毎回変わる）をブラウザで開く
 2. なまえを入力 →「＋ 新しい部屋をつくる」
 3. 表示された**4文字コード**か**QRコード**を仲間に見せる
 
@@ -82,83 +82,58 @@ photoparty/
 
 ## 3. トンネリング（インターネット公開）の仕組み
 
-参加者は同じWi-Fiにいるとは限らないため、自宅Macのローカルサーバ(`localhost:3000`)を安全にインターネット公開する必要がある。これに **Tailscale Funnel** を使っている。
+参加者は同じWi-Fiにいるとは限らないため、自宅Macのローカルサーバ(`localhost:3000`)をインターネット公開する必要がある。これに **cloudflared クイックトンネル** を使っている。
 
-### Tailscale Funnel とは
-- Tailscale の機能で、**自分の1台のマシンの特定ポートを、公開HTTPS URLとしてインターネットに晒す**もの
-- **ホスト（Mac側）**: Tailscaleにログインが必要
-- **閲覧者（参加者）**: Tailscaleのインストールもログインも**不要**。ただ公開URLをブラウザで開くだけ
-- **URLが固定**: `https://shumacbook.tailfa36ca.ts.net`。マシン名とtailnet名から決まり、再起動しても変わらない
+### cloudflared クイックトンネルとは
+- Cloudflare の `cloudflared` で、**ローカルの3000番を公開HTTPS URLとして一時的に晒す**もの
+- **ホスト（Mac側）**: `cloudflared` を起動するだけ（アカウント不要）
+- **閲覧者（参加者）**: 何もいらない。公開URLをブラウザで開くだけ
+- **WebSocketが確実に通る**（このアプリはWS必須）
+- **URLは起動ごとに変わる**: `https://<ランダム語>.trycloudflare.com`。毎回変わるので、`start.sh` が起動時に**その日のURLとQR**を表示する
 
-### なぜこれを選んだか
-- 以前は cloudflared のクイックトンネルを使っていたが、**起動のたびにURLが変わり**、その都度QRを配り直す必要があった
-- スリープ/再起動でトンネルが切れると復旧が面倒だった
-- Tailscale Funnel は **URL固定** かつ **設定がマシンに保存される**ため、スリープ復帰・再起動後も同じURLで自動復活する
+### なぜこれ（cloudflared）にしたか
+- 当初は **Tailscale Funnel**（URL固定・無料・ドメイン不要）を採用したが、**実運用で参加者端末からWS/到達性が不安定**になり「部屋に入れない」が再発。Funnelが届かないとService Workerが古いキャッシュ版を表示し、原因が分かりにくかった。
+- cloudflared は同条件で **WSが確実に通り、部屋作成まで実機で成功**。よってこちらに一本化した。
+- 弱点はURLが毎回変わること。独自ドメインを持てば **cloudflared 名前付きトンネル**でURL固定＋WS両立できる（今回はドメイン無しのためクイックで運用）。
 
-### 現在の設定
-- `tailscaled`（Tailscale本体）は `brew services` で常駐 → Mac起動時に自動起動
-- Funnel設定（3000番を公開）は `tailscaled` の状態に保存済み → 起動時に自動復元
-- 確認コマンド:
-  ```bash
-  tailscale funnel status
-  ```
-  ```
-  # Funnel on:
-  https://shumacbook.tailfa36ca.ts.net (Funnel on)
-  |-- / proxy http://127.0.0.1:3000
-  ```
+### 確認コマンド
+```bash
+pgrep -fl "cloudflared tunnel"                        # トンネル生存
+grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' /tmp/photoparty-cf.log | head -1   # 今のURL
+```
 
 ### 注意点
-- Funnelの公開トラフィックはTailscaleのリレー経由になる場合があり、**大きい動画（32MB級）は遅くなる可能性**がある。重ければ動画サイズ制限を下げるか、クライアント側圧縮の導入を検討
-- Funnelはインターネット全体に公開される。部屋コードを知らなければ入室はできないが、URL自体は誰でも開ける
-
-### 予備手段（cloudflared）
-Tailscaleが使えない場合の予備として `restart.sh`（cloudflaredクイックトンネル）が残してある。ただし**起動ごとにURLが変わる**ので、基本はTailscale Funnelを使う。
+- インターネット全体に公開される。部屋コードを知らなければ入室はできないが、URL自体は誰でも開ける。
+- クイックトンネルは**時間経過やネットワーク変化で切れる（`Tunnel not found`）**ことがある。切れたら `start.sh` を再実行して新URLを取り直す。
 
 ---
 
-## 4. サーバー起動方法（Mac電源OFFからの手順）
+## 4. サーバー起動方法（Mac電源OFF・URL取り直し）
 
-Macを電源OFF → 起動した場合の復旧手順。ポイントは **Tailscale側は自動復活するが、nodeサーバは手動起動が必要** という点。
-
-### 起動の流れ
-| 要素 | 電源ON後 | 対応 |
-|---|---|---|
-| tailscaled（Funnel） | **自動起動・URL自動復元** | 何もしなくてよい |
-| node サーバ(server.js) | **自動起動しない** | 手動で起動が必要 |
+Macを起動した後、または「今日の公開URLが欲しい」とき。**node も cloudflared も自動起動しない**ので `start.sh` で立てる。
 
 ### 手順
 
 **① Macを起動してログイン**
-tailscaled が自動起動し、Funnel設定も復元される（数十秒待つ）。
 
-**② nodeサーバを起動**
-
-付属スクリプトで一発:
+**② `start.sh` を実行（これ1つ）**
 ```bash
 ~/photoparty/start.sh
 ```
-
-または手動:
-```bash
-cd ~/photoparty
-node server.js
-```
-（閉じても動かし続けたいなら `nohup node server.js > /tmp/photoparty-server.log 2>&1 &`）
-
-**③ 動作確認**
-```bash
-tailscale funnel status        # Funnel on と 3000番proxy が出ればOK
-```
-ブラウザで https://shumacbook.tailfa36ca.ts.net を開き、入室画面が出れば復旧完了。
+- node サーバと cloudflared を立て、**公開URLとQRコードをターミナルに表示**する。
+- 表示されたURLをホスト機のブラウザで開く（またはQRをスマホで読む）→ 部屋作成 → アプリ内QRで参加者を招待。
+- **URLは起動ごとに変わる**。参加者にはその都度この新URL/QRを見せる。
 
 ### うまくいかない時
 | 症状 | 確認/対処 |
 |---|---|
-| 部屋が作れない/画面が出ない | `pgrep -fl "node server.js"` でサーバ生存確認。いなければ `②` を再実行 |
-| Funnelがoffになっている | `tailscale funnel --bg 3000` で再公開 |
-| Tailscaleがログアウトしている | `tailscale status` を確認。落ちていたら `tailscale up` で再ログイン |
-| tailscaledが動いていない | `sudo brew services start tailscale` |
+| 部屋が作れない/画面が出ない | `pgrep -fl "node server.js"` と `pgrep -fl "cloudflared tunnel"` で生存確認。いなければ `start.sh` を再実行 |
+| トンネルが切れた(`Tunnel not found`) | `start.sh` を再実行して新URLを取得 |
+| URLを忘れた | `grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' /tmp/photoparty-cf.log \| head -1` |
+| 端末QRを出したい | `brew install qrencode`（`start.sh` が自動でQR表示に使う） |
+
+### 参考: URL固定にしたい場合
+独自ドメインがあれば **cloudflared 名前付きトンネル**（URL固定・WS○・launchd常駐で自動復活）に昇格できる。今回はドメイン無しのためクイック運用。
 
 ### （任意）nodeも完全自動化したい場合
 再起動しても node を自動起動させたいなら、`~/Library/LaunchAgents/com.ptpt.server.plist` に LaunchAgent（`RunAtLoad`/`KeepAlive`）を作れば「電源ONで全自動復活」にできる。永続常駐の設定になるため、必要になったら別途セットアップする。
