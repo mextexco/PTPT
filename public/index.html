@@ -249,7 +249,17 @@ input[type=text]::placeholder { color: var(--ink-soft); }
 #effectGrid button.sel { background: var(--blue); color: #fff; }
 #previewRow { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
 #previewRow img, #previewRow video { width: 30%; max-height: 16vh; object-fit: cover; border-radius: 10px; border: 2.5px solid var(--ink); }
-#toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); border: 2.5px solid var(--ink); color: #fff; font-weight: 700; padding: 11px 20px; border-radius: 999px; font-size: 13px; z-index: 99; box-shadow: var(--shadow-sm); }
+#toast { position: fixed; top: 56px; left: 50%; transform: translateX(-50%); background: var(--ink); border: 2.5px solid var(--ink); color: #fff; font-weight: 700; padding: 11px 20px; border-radius: 999px; font-size: 13px; z-index: 99; box-shadow: var(--shadow-sm); }
+/* 接続ステータスのピル（原因究明用）: 接続中/接続済み/再接続中/接続できない */
+#connPill { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 100; display: none; align-items: center; gap: 7px; max-width: 92vw; padding: 9px 16px; border: 2.5px solid var(--ink); border-radius: 999px; font-size: 12.5px; font-weight: 800; color: #fff; background: var(--ink); box-shadow: var(--shadow-sm); }
+#connPill.show { display: inline-flex; }
+#connPill.connecting { background: var(--blue); }
+#connPill.reconnecting { background: var(--yellow); color: var(--ink); }
+#connPill.online { background: var(--green); }
+#connPill.failed { background: var(--danger); }
+#connPill .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+#connPill.connecting .dot, #connPill.reconnecting .dot { animation: connBlink .8s ease-in-out infinite; }
+@keyframes connBlink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 
 /* 入室ウェルカム */
 #welcome { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; background: rgba(255,244,232,.75); backdrop-filter: blur(2px); overflow: hidden; }
@@ -479,19 +489,49 @@ let reconnectTimer = null;
 let lastState = null; // 直近のstate（ステータス表示用）
 
 // ---- 接続 ----
+let connWatchdog = null, joinWatchdog = null;
 function connect(onOpen) {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}`);
-  ws.onopen = onOpen;
+  setConn(session ? 'reconnecting' : 'connecting');
+  try { ws = new WebSocket(`${proto}://${location.host}`); }
+  catch (e) { onConnectFail('URL不正'); return; }
+  // 8秒 CONNECTING のまま開かなければ中断（Funnel等でWSが固まるケースを検知）
+  clearTimeout(connWatchdog);
+  connWatchdog = setTimeout(() => { if (ws && ws.readyState === 0) { try { ws.close(); } catch (e) {} } }, 8000);
+  ws.onopen = () => {
+    clearTimeout(connWatchdog);
+    setConn('online');
+    onOpen();
+    // WSは開いたのに入室応答(joined)が来ないケースも検知
+    if (!session) { clearTimeout(joinWatchdog); joinWatchdog = setTimeout(() => { if (!session) onConnectFail('入室応答なし(WSは開いた)'); }, 8000); }
+  };
   ws.onmessage = ev => handle(JSON.parse(ev.data));
-  ws.onclose = () => scheduleReconnect();
+  ws.onerror = () => {}; // 実害はoncloseで拾う（ここで拾うと二重になる）
+  ws.onclose = (e) => {
+    clearTimeout(connWatchdog);
+    if (session) scheduleReconnect();
+    else onConnectFail('close=' + ((e && e.code) || '?'));
+  };
+}
+
+// 初回(create/join)接続の失敗を可視化＋層を自動判別。HTTPは届くのにWSだけ失敗＝トンネルのWS問題
+async function onConnectFail(reason) {
+  if (session) return; // 再接続中はscheduleReconnectが担当
+  $('createBtn').disabled = false;
+  $('joinBtn').disabled = false;
+  let httpOk = false;
+  try { const r = await fetch('/manifest.json', { cache: 'no-store' }); httpOk = r.ok; } catch (e) { httpOk = false; }
+  const detail = (httpOk
+    ? 'サーバは見えるが通信(WS)が繋がらない。トンネルのWS問題かも。'
+    : 'サーバ/回線に届いていない。') + reason;
+  setConn('failed', detail);
 }
 function sendMsg(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
 
 // ---- 自動再接続: 部屋に入っていたら同じ部屋へ勝手に戻る ----
 function scheduleReconnect() {
   if (!session) return;
-  toast('接続が切れた。再接続中…');
+  setConn('reconnecting');
   clearTimeout(reconnectTimer);
   reconnectTimer = setTimeout(() => {
     if (ws && ws.readyState === 1) return;
@@ -515,10 +555,14 @@ function myName() {
 }
 $('nameInput').value = localStorage.getItem('pp_name') || '';
 
-$('createBtn').onclick = () => connect(() => sendMsg({ type: 'create', name: myName() }));
+$('createBtn').onclick = () => {
+  $('createBtn').disabled = true; $('joinBtn').disabled = true;
+  connect(() => sendMsg({ type: 'create', name: myName() }));
+};
 $('joinBtn').onclick = () => {
   const code = $('codeInput').value.trim().toUpperCase();
   if (code.length !== 4) return toast('4文字のコードを入れて');
+  $('createBtn').disabled = true; $('joinBtn').disabled = true;
   connect(() => sendMsg({ type: 'join', room: code, name: myName() }));
 };
 // URLに ?room=XXXX があればコード欄に自動セット
@@ -575,6 +619,7 @@ function closeScanner() {
 // ---- 受信 ----
 function handle(m) {
   if (m.type === 'joined') {
+    clearTimeout(joinWatchdog);
     const rejoined = !!session;
     myId = m.id; myRoom = m.room; isHost = m.isHost || isHost;
     session = { room: m.room, name: myName() };
@@ -582,11 +627,14 @@ function handle(m) {
     $('room').classList.remove('hidden');
     $('roomCode').textContent = myRoom;
     history.replaceState(null, '', '?room=' + myRoom);
+    setConn('online');
     if (rejoined) toast('再接続した');
     else if (isHost) showQR();
     else showWelcome(myRoom);
   } else if (m.type === 'error') {
-    toast(m.message);
+    clearTimeout(joinWatchdog);
+    setConn('failed', m.message);
+    $('createBtn').disabled = false; $('joinBtn').disabled = false;
     if (session) { session = null; setTimeout(() => location.href = '/', 1500); }
   } else if (m.type === 'state') {
     $('memberCount').textContent = '■ ' + m.members.length + '人';
@@ -1187,6 +1235,18 @@ function toast(msg) {
   t.textContent = msg;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.remove(), 2500);
+}
+
+// ---- 接続ステータス表示 ----
+let connTimer = null;
+function setConn(state, detail) {
+  let p = $('connPill');
+  if (!p) { p = document.createElement('div'); p.id = 'connPill'; document.body.appendChild(p); }
+  clearTimeout(connTimer);
+  const label = { connecting: '接続中…', online: '接続済み', reconnecting: '接続が切れた・再接続中…', failed: '接続できない' }[state] || '';
+  p.className = 'show ' + state;
+  p.innerHTML = '<span class="dot"></span><span>' + esc(label + (detail ? '：' + detail : '')) + '</span>';
+  if (state === 'online') connTimer = setTimeout(() => p.classList.remove('show'), 1200);
 }
 </script>
 </body>
