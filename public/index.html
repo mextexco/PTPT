@@ -573,9 +573,22 @@ $('joinBtn').onclick = () => {
   $('createBtn').disabled = true; $('joinBtn').disabled = true;
   connect(() => sendMsg({ type: 'join', room: code, name: myName() }));
 };
-// URLに ?room=XXXX があればコード欄に自動セット
-const urlRoom = new URLSearchParams(location.search).get('room');
-if (urlRoom) $('codeInput').value = urlRoom.toUpperCase();
+// URLに ?room=XXXX があればコード欄に自動セット。
+// ?join=1（QRスキャンからの遷移）なら、引き継いだ名前で自動入室する
+(function () {
+  const p = new URLSearchParams(location.search);
+  const r = p.get('room');
+  if (!r) return;
+  const code = r.toUpperCase();
+  $('codeInput').value = code;
+  const nm = p.get('name');
+  if (nm) { $('nameInput').value = nm.slice(0, 20); localStorage.setItem('pp_name', $('nameInput').value); }
+  if (p.get('join') === '1') {
+    history.replaceState(null, '', '?room=' + code); // join/nameをURLから消す（再発火・履歴汚染防止）
+    $('createBtn').disabled = true; $('joinBtn').disabled = true;
+    connect(() => sendMsg({ type: 'join', room: code, name: myName() }));
+  }
+})();
 
 // ---- QRスキャンで部屋に入る ----
 let scanStream = null, scanRAF = null, scanCanvas = null;
@@ -609,13 +622,20 @@ function scanLoop() {
   scanRAF = requestAnimationFrame(scanLoop);
 }
 function onScanned(text) {
-  let room = null;
-  try { room = new URLSearchParams(new URL(text).search).get('room'); } catch {}
+  let u = null, room = null;
+  try { u = new URL(text); room = new URLSearchParams(u.search).get('room'); } catch {}
   if (!room) { const m = text.toUpperCase().match(/[A-Z2-9]{4}/); room = m && m[0]; }
   if (!room) { toast('部屋コードが読めなかった'); scanRAF = requestAnimationFrame(scanLoop); return; }
   closeScanner();
+  room = room.toUpperCase();
+  // QRがフルURLで、いま開いているオリジンと違う（＝トンネルが貼り直されて古い可能性）なら、
+  // 古いトンネルに繋がず、QRの新URLへ移動してそこから入室する（名前も引き継ぐ）
+  if (u && /^https?:$/.test(u.protocol) && u.origin !== location.origin) {
+    location.href = u.origin + '/?room=' + room + '&join=1&name=' + encodeURIComponent(myName());
+    return;
+  }
   toast('部屋に入る…');
-  connect(() => sendMsg({ type: 'join', room: room.toUpperCase(), name: myName() }));
+  connect(() => sendMsg({ type: 'join', room, name: myName() }));
 }
 function closeScanner() {
   if (scanRAF) { cancelAnimationFrame(scanRAF); scanRAF = null; }
