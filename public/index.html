@@ -519,11 +519,13 @@ async function onConnectFail(reason) {
   if (session) return; // 再接続中はscheduleReconnectが担当
   $('createBtn').disabled = false;
   $('joinBtn').disabled = false;
+  // キャッシュにも無いユニークなパスを叩く。SWがキャッシュを返す偽陽性を避け、実際にサーバへ届くか判定する
+  // （応答が返れば=404でも=サーバ到達。ネットワークエラーで例外なら未到達）
   let httpOk = false;
-  try { const r = await fetch('/manifest.json', { cache: 'no-store' }); httpOk = r.ok; } catch (e) { httpOk = false; }
+  try { await fetch('/__ping-' + Date.now(), { cache: 'no-store' }); httpOk = true; } catch (e) { httpOk = false; }
   const detail = (httpOk
     ? 'サーバは見えるが通信(WS)が繋がらない。トンネルのWS問題かも。'
-    : 'サーバ/回線に届いていない。') + reason;
+    : 'サーバ/トンネルに届いていない。トンネルが切れたかも→start.shで立て直す。') + reason;
   setConn('failed', detail);
 }
 function sendMsg(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
