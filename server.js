@@ -3,6 +3,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 3000;
@@ -55,6 +56,7 @@ function broadcastState(room) {
     current: room.current ? { ownerId: room.current.ownerId, ownerName: room.current.ownerName } : null,
     hasPrev: room.history.length > 0,
     totals: { posted: room.totalPosted || 0, reactions: room.totalReactions || 0 },
+    publicUrl,
   });
 }
 
@@ -191,6 +193,10 @@ wss.on('connection', (ws) => {
       if (!room.current) advance(room);
       else broadcastState(room);
 
+    } else if (msg.type === 'retunnel') {
+      // ホストだけがトンネルを手動で貼り直せる
+      if (room.hostId === id) requestRetunnel();
+
     } else if (msg.type === 'getlog') {
       send(ws, { type: 'log', entries: room.exifLog });
 
@@ -228,4 +234,65 @@ wss.on('connection', (ws) => {
   });
 });
 
-server.listen(PORT, () => console.log(`PhotoParty: http://localhost:${PORT}`));
+// ============ cloudflared トンネル自動監視 ============
+// PP_TUNNEL=1 のとき、サーバがcloudflaredを子プロセスで起動・監視し、落ちたら自動で貼り直す。
+// 現在の公開URLは publicUrl に保持し、クライアントへ配る（QR/招待に使う）。
+let publicUrl = null;
+let cfProc = null, cfRestartTimer = null, cfLastStart = 0;
+const CF_BIN = process.env.CF_BIN || 'cloudflared';
+const CF_LOG = '/tmp/photoparty-cf.log';
+
+function broadcastPublicUrl() {
+  const data = JSON.stringify({ type: 'tunnel', url: publicUrl });
+  for (const room of rooms.values()) for (const { ws } of room.clients.values()) if (ws.readyState === 1) ws.send(data);
+}
+
+function startTunnel() {
+  if (process.env.PP_TUNNEL !== '1') return;
+  cfLastStart = Date.now();
+  let pending = null, registered = false;
+  try { fs.writeFileSync(CF_LOG, ''); } catch (e) {}
+  console.log('■ cloudflared 起動中…');
+  cfProc = spawn(CF_BIN, ['tunnel', '--edge-ip-version', '4', '--protocol', 'http2', '--url', `http://localhost:${PORT}`]);
+  const onData = (buf) => {
+    const s = buf.toString();
+    try { fs.appendFileSync(CF_LOG, s); } catch (e) {}
+    const m = s.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
+    if (m) pending = m[0];
+    if (/Registered tunnel connection/.test(s) && pending) {
+      registered = true;
+      if (pending !== publicUrl) { publicUrl = pending; console.log('■ 公開URL:', publicUrl); broadcastPublicUrl(); }
+    }
+    // 一度確立した後の失効はこのトンネルでは回復しないので貼り直す
+    if (registered && /Tunnel not found|Connection terminated|context canceled/.test(s)) {
+      scheduleTunnelRestart('失効検知');
+    }
+  };
+  cfProc.stdout.on('data', onData);
+  cfProc.stderr.on('data', onData);
+  cfProc.on('exit', (code) => { console.log('■ cloudflared 終了 code=' + code); scheduleTunnelRestart('プロセス終了'); });
+  cfProc.on('error', (e) => { console.log('■ cloudflared 起動失敗:', e.message, '（PATHにcloudflaredがあるか確認）'); });
+}
+
+function scheduleTunnelRestart(why) {
+  if (process.env.PP_TUNNEL !== '1' || cfRestartTimer) return;
+  console.log('■ トンネル貼り直し予約:', why);
+  if (publicUrl !== null) { publicUrl = null; broadcastPublicUrl(); } // 準備中を全員へ
+  const wait = Math.max(3000, 5000 - (Date.now() - cfLastStart)); // 暴走防止のバックオフ
+  cfRestartTimer = setTimeout(() => { cfRestartTimer = null; killCf(); startTunnel(); }, wait);
+}
+
+function killCf() {
+  try { if (cfProc) { cfProc.removeAllListeners('exit'); cfProc.kill(); } } catch (e) {}
+  cfProc = null;
+}
+
+function requestRetunnel() {
+  console.log('■ 手動トンネル貼り直し要求');
+  clearTimeout(cfRestartTimer); cfRestartTimer = null;
+  if (publicUrl !== null) { publicUrl = null; broadcastPublicUrl(); }
+  killCf();
+  startTunnel();
+}
+
+server.listen(PORT, () => { console.log(`PhotoParty: http://localhost:${PORT}`); startTunnel(); });

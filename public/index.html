@@ -404,7 +404,9 @@ input[type=text]::placeholder { color: var(--ink-soft); }
     <div class="code" id="qrCode"></div>
     <div id="qrImg"></div>
     <div class="hint">QRを読むだけで参加できる</div>
+    <div class="hint" style="word-break:break-all">公開URL: <span id="curUrl"></span></div>
     <button class="primary" id="shareBtn">🔗 リンクを共有</button>
+    <button id="retunnelBtn" class="hidden">🔄 トンネルを貼り直す</button>
     <button id="qrClose">閉じる</button>
   </div>
 </div>
@@ -483,7 +485,11 @@ const EFFECTS = [
 const FX_LABEL = Object.fromEntries(EFFECTS.map(e => [e.key, e.icon + ' ' + e.label]));
 
 let ws = null, myId = null, myRoom = null, isHost = false;
+let publicUrl = null; // サーバが管理する現在の公開URL（トンネルが貼り直されると更新）
 let pendingImages = [];
+// 招待リンクの土台: サーバから公開URLをもらえていればそれ、無ければ今開いてるオリジン
+function inviteBase() { return publicUrl || location.origin; }
+const onLocalhost = ['localhost', '127.0.0.1'].includes(location.hostname);
 let session = null; // 再接続用 {room, name}
 let reconnectTimer = null;
 let lastState = null; // 直近のstate（ステータス表示用）
@@ -641,9 +647,13 @@ function handle(m) {
   } else if (m.type === 'state') {
     $('memberCount').textContent = '■ ' + m.members.length + '人';
     lastState = m;
+    if (m.publicUrl !== undefined) applyPublicUrl(m.publicUrl);
     renderStatus(); // PC右パネルとモーダル両方を最新に（モーダルが閉じていても軽いので更新）
     renderQueue(m.queue);
     $('prevBtn').classList.toggle('hidden', !m.hasPrev);
+  } else if (m.type === 'tunnel') {
+    applyPublicUrl(m.url);
+    if (m.url) toast('公開URLが更新された'); else toast('トンネル貼り直し中…');
   } else if (m.type === 'show') {
     showPhoto(m.image, m.effect, m.ownerName, m.kind);
     startTimeBar(m.lead || 0, m.hold || 0);
@@ -1105,14 +1115,30 @@ function joinCue(name) {
 }
 
 // ---- QR ----
-function showQR() {
+function renderQR() {
   $('qrCode').textContent = myRoom;
-  const url = location.origin + '/?room=' + myRoom;
-  const qr = qrcode(0, 'M');
-  qr.addData(url); qr.make();
-  $('qrImg').innerHTML = qr.createImgTag(5, 8);
-  $('qrModal').classList.remove('hidden');
+  const base = inviteBase();
+  // 公開URLがまだ来ていない（トンネル準備中）ときはQRを出さず案内する
+  if (onLocalhost && !publicUrl) {
+    $('qrImg').innerHTML = '<div class="hint" style="padding:24px">公開URL 準備中…（トンネル貼り直し中）</div>';
+    $('shareBtn').disabled = true;
+  } else {
+    const url = base + '/?room=' + myRoom;
+    const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+    $('qrImg').innerHTML = qr.createImgTag(5, 8);
+    $('shareBtn').disabled = false;
+  }
+  // ホストがMacのlocalhostで開いている時だけ「貼り直す」を出す（トンネル経由だと自分も切れるため）
+  $('retunnelBtn').classList.toggle('hidden', !(isHost && onLocalhost));
+  $('curUrl').textContent = publicUrl ? publicUrl : (onLocalhost ? '（未確立）' : location.origin);
 }
+function showQR() { renderQR(); $('qrModal').classList.remove('hidden'); }
+// サーバから来た公開URLを反映。QRモーダルが開いていれば描き直す
+function applyPublicUrl(url) {
+  publicUrl = url || null;
+  if (!$('qrModal').classList.contains('hidden')) renderQR();
+}
+$('retunnelBtn').onclick = () => { sendMsg({ type: 'retunnel' }); toast('トンネルを貼り直す…'); };
 $('qrBtn').onclick = showQR;
 $('qrClose').onclick = () => $('qrModal').classList.add('hidden');
 $('helpBtn').onclick = () => $('helpModal').classList.remove('hidden');
@@ -1193,7 +1219,7 @@ function renderStatus() {
 
 // リンク共有: OSの共有シート(メール/LINE/AirDrop/QuickShare等)。非対応ならコピー
 $('shareBtn').onclick = async () => {
-  const url = location.origin + '/?room=' + myRoom;
+  const url = inviteBase() + '/?room=' + myRoom;
   const data = { title: 'PTPT', text: `PTPTに参加しよう（部屋 ${myRoom}）`, url };
   if (navigator.share) {
     try { await navigator.share(data); return; }

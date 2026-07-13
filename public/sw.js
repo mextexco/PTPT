@@ -1,5 +1,5 @@
 // PhotoParty service worker: アプリシェルだけキャッシュ。写真は一切キャッシュしない
-const CACHE = 'ptpt-v21';
+const CACHE = 'ptpt-v22';
 const SHELL = ['/', '/index.html', '/qrcode.min.js', '/jsqr.min.js', '/exif.min.js', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', e => {
