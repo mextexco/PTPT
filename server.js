@@ -219,6 +219,12 @@ wss.on('connection', (ws) => {
       if (room.current) { const owner = room.clients.get(room.current.ownerId); if (owner) owner.reactions++; }
       broadcast(room, { type: 'react', emoji: String(msg.emoji || '').slice(0, 8), from: room.clients.get(id).name });
       broadcastState(room);
+
+    } else if (msg.type === 'comment') {
+      // 簡単なテキストメッセージ。名前付きで全員へ配信（集計はしない）
+      const text = String(msg.text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+      if (!text) return;
+      broadcast(room, { type: 'comment', text, from: room.clients.get(id).name });
     }
   });
 

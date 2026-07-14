@@ -144,6 +144,20 @@ input[type=text]::placeholder { color: var(--ink-soft); }
 }
 #reactBar { position: absolute; right: 12px; bottom: 76px; z-index: 7; display: flex; flex-direction: column; gap: 8px; }
 #reactBar button { font-size: 23px; width: 48px; height: 48px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--surface); box-shadow: var(--shadow-sm); }
+/* コメント入力バー: ステージ下部中央にオーバーレイ */
+#commentBar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 8; display: flex; gap: 8px; width: min(88%, 460px); background: var(--surface); border: 2.5px solid var(--ink); border-radius: 999px; padding: 6px 6px 6px 14px; box-shadow: var(--shadow); }
+#commentBar input { flex: 1; border: none; background: transparent; box-shadow: none; padding: 8px 0; font-size: 16px; }
+#commentBar input:focus { outline: none; }
+#commentBar button { padding: 8px 16px; font-size: 14px; flex-shrink: 0; }
+/* コメント吹き出し: ステージ下部中央から浮かんで数秒で消える */
+.commentBubble { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: 82%; background: #fff; border: 2.5px solid var(--ink); border-radius: 16px; padding: 8px 14px; font-size: 14px; font-weight: 700; color: var(--ink); box-shadow: var(--shadow-sm); word-break: break-word; text-align: center; animation: commentPop 5s ease forwards; }
+.commentBubble b { color: var(--pink); margin-right: 5px; }
+@keyframes commentPop {
+  0% { opacity: 0; transform: translate(-50%, 12px) scale(.9); }
+  6% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  85% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -8px) scale(1); }
+}
 
 /* queue */
 #queueBox { border: 2.5px solid var(--ink); border-radius: var(--radius); padding: 12px; background: var(--surface); box-shadow: var(--shadow-sm); }
@@ -377,7 +391,11 @@ input[type=text]::placeholder { color: var(--ink-soft); }
     <button id="prevBtn" class="hidden">⏮ 1枚戻る</button>
     <button id="addBtn" class="primary" title="写真5枚・動画1本まで">＋</button>
     <div id="reactBar">
-      <button data-e="❤️">❤️</button><button data-e="🔥">🔥</button><button data-e="😂">😂</button><button data-e="👏">👏</button>
+      <button data-e="❤️">❤️</button><button data-e="🔥">🔥</button><button data-e="😂">😂</button><button id="commentBtn" title="コメント">💬</button>
+    </div>
+    <div id="commentBar" class="hidden">
+      <input id="commentInput" type="text" maxlength="80" placeholder="コメント…" autocomplete="off">
+      <button id="commentSend" class="primary">送信</button>
     </div>
     <div id="reactLayer"></div>
   </div>
@@ -683,6 +701,8 @@ function handle(m) {
     showRecentGrid(m.recent || []);
   } else if (m.type === 'react') {
     floatEmoji(m.emoji);
+  } else if (m.type === 'comment') {
+    floatComment(m.from, m.text);
   } else if (m.type === 'notice') {
     if (m.kind === 'join') joinCue(m.name);
   } else if (m.type === 'log') {
@@ -1114,9 +1134,38 @@ function playFx(effect) {
 }
 
 // ---- リアクション ----
-document.querySelectorAll('#reactBar button').forEach(b => {
+document.querySelectorAll('#reactBar button[data-e]').forEach(b => {
   b.onclick = () => sendMsg({ type: 'react', emoji: b.dataset.e });
 });
+// ---- コメント（テキストメッセージ） ----
+$('commentBtn').onclick = () => {
+  const bar = $('commentBar');
+  bar.classList.toggle('hidden');
+  if (!bar.classList.contains('hidden')) $('commentInput').focus();
+};
+function sendComment() {
+  const t = $('commentInput').value.trim();
+  if (!t) return;
+  sendMsg({ type: 'comment', text: t });
+  $('commentInput').value = '';
+  $('commentBar').classList.add('hidden');
+}
+$('commentSend').onclick = sendComment;
+$('commentInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); sendComment(); }
+  else if (e.key === 'Escape') $('commentBar').classList.add('hidden');
+});
+// 「名前：テキスト」の吹き出しをステージ下部に数秒フロート表示（新しいものは少し上へずらす）
+function floatComment(from, text) {
+  const el = document.createElement('div');
+  el.className = 'commentBubble';
+  el.innerHTML = '<b>' + esc(from || 'だれか') + '</b>' + esc(text || '');
+  const layer = $('reactLayer');
+  const n = layer.querySelectorAll('.commentBubble').length;
+  el.style.marginBottom = (n % 4) * 46 + 'px';
+  layer.appendChild(el);
+  setTimeout(() => el.remove(), 5000);
+}
 function floatEmoji(e) {
   const el = document.createElement('div');
   el.className = 'floatEmoji';
