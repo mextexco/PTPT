@@ -301,4 +301,25 @@ function requestRetunnel() {
   startTunnel();
 }
 
-server.listen(PORT, () => { console.log(`PhotoParty: http://localhost:${PORT}`); startTunnel(); });
+const G = '\x1b[38;5;46m', D = '\x1b[2m', R = '\x1b[0m';
+const BANNER = String.raw`
+ ____  _   _  ___ _____ ___
+|  _ \| | | |/ _ \_   _/ _ \
+| |_) | |_| | | | || || | | |
+|  __/|  _  | |_| || || |_| |
+|_|   |_| |_|\___/ |_| \___/
+ ____   _    ____ _______   __
+|  _ \ / \  |  _ \_   _\ \ / /
+| |_) / _ \ | |_) || |  \ V /
+|  __/ ___ \|  _ < | |   | |
+|_| /_/   \_\_| \_\|_|   |_|
+`;
+
+server.listen(PORT, () => {
+  console.log(`${G}${BANNER}${R}`);
+  console.log(`${G}  PhotoParty: 同じ部屋の仲間と写真を見せ合うサーバー${R}`);
+  console.log(`${D}  配信元: ${PUBLIC}${R}`);
+  console.log(`  開く → ${G}http://localhost:${PORT}${R}`);
+  console.log(`${D}  停止: Ctrl+C（公開URLは cloudflared 起動後に表示）${R}\n`);
+  startTunnel();
+});
